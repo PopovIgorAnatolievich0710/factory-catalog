@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Tenengroup.FactoryCatalog.Business.Abstractions.Shared.Sync;
 using Tenengroup.FactoryCatalog.Business.Abstractions.Skus.Details;
 using Tenengroup.FactoryCatalog.Business.Abstractions.Skus.FactoryShare;
 using Tenengroup.FactoryCatalog.Business.Abstractions.Skus.Import;
@@ -24,23 +25,19 @@ namespace Tenengroup.FactoryCatalog.CompositionRoot.Modules;
 
 public static class SkusModule
 {
-    public const string MasterCatalogSection = "MasterCatalog";
-
     public static IServiceCollection AddSkusModule(this IServiceCollection services, IConfiguration configuration)
     {
-        var masterCatalog = configuration.GetSection(MasterCatalogSection);
+        var masterCatalog = configuration.GetSection(MasterCatalogOptions.SectionName).Get<MasterCatalogOptions>() ?? new MasterCatalogOptions();
         services.AddHttpClient<IMasterCatalogClient, MasterCatalogClient>(client =>
         {
-            var baseUrl = masterCatalog["BaseUrl"];
-            if (!string.IsNullOrWhiteSpace(baseUrl))
+            if (!string.IsNullOrWhiteSpace(masterCatalog.BaseUrl))
             {
-                client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+                client.BaseAddress = new Uri(masterCatalog.BaseUrl.TrimEnd('/') + "/");
             }
 
-            var username = masterCatalog["Username"];
-            if (!string.IsNullOrEmpty(username))
+            if (!string.IsNullOrEmpty(masterCatalog.Username))
             {
-                var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{masterCatalog["Password"]}"));
+                var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{masterCatalog.Username}:{masterCatalog.Password}"));
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
             }
         });
@@ -56,7 +53,7 @@ public static class SkusModule
         services.AddScoped<MasterCatalogSkuImporter>();
         services.AddScoped<IMasterCatalogSyncJob, MasterCatalogSyncJob>();
 
-        services.AddScoped<IRequestHandler<TriggerMasterCatalogSyncCommand>, TriggerMasterCatalogSyncCommandHandler>();
+        services.AddScoped<IRequestHandler<TriggerMasterCatalogSyncCommand, SyncStatusDto>, TriggerMasterCatalogSyncCommandHandler>();
         services.AddScoped<IRequestHandler<SearchSkusQuery, ListResult<SkuListItemDto>>, SearchSkusQueryHandler>();
         services.AddScoped<IRequestHandler<ExportSkusQuery, ExcelFile>, ExportSkusQueryHandler>();
         services.AddScoped<IRequestHandler<GetSkusSummaryQuery, SkusSummaryDto>, GetSkusSummaryQueryHandler>();

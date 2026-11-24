@@ -1,9 +1,10 @@
+import { ApiStockStatus } from "../components-catalog/entities/component";
+
 export type SkuProductType = "Manufactured" | "Dropshipper";
 export type SkuStatus = "Active" | "Retired";
 export type SkuValidationStatus = "Valid" | "Invalid";
 export type ComponentUsage = "Static" | "Dynamic";
 export type SkuShareSource = "NotProducible" | "Default" | "Override" | "Rebalanced";
-export type SkuComponentStockStatus = "Ok" | "Low" | "OutOfStock";
 export type ProcessType = "Machine" | "Work";
 export type ProductionConflictKind = "ProcessNotListed" | "ProcessNotUsed" | "MachineMismatch";
 
@@ -69,8 +70,7 @@ export interface SkuAlias {
 export interface SkuComponentFactoryStock {
     factoryId: string;
     totalStock: number;
-    stockStatus: SkuComponentStockStatus;
-    oosConflict: boolean;
+    stockStatus: ApiStockStatus;
 }
 
 export interface SkuComponent {

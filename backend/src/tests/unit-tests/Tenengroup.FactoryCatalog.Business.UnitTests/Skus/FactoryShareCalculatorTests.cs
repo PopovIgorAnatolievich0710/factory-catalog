@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using Tenengroup.FactoryCatalog.Business.Skus.FactoryShare;
 using Tenengroup.FactoryCatalog.Domains.Skus;
 
 namespace Tenengroup.FactoryCatalog.Business.UnitTests.Skus;

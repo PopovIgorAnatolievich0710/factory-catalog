@@ -1,4 +1,6 @@
-namespace Tenengroup.FactoryCatalog.Domains.Skus;
+using Tenengroup.FactoryCatalog.Business.Quotes;
+
+namespace Tenengroup.FactoryCatalog.Business.Skus.FactoryShare;
 
 public static class FactoryShareCalculator
 {
@@ -10,10 +12,9 @@ public static class FactoryShareCalculator
         var shares = factories.ToDictionary(f => f.FactoryId, _ => 0m);
         var remaining = factories
             .Where(f => f.CanProduce)
-            .Select(f => new KeyValuePair<string, decimal>(f.FactoryId, f.OverridePct ?? f.DefaultPct))
-            .ToList();
+            .ToDictionary(f => f.FactoryId, f => f.OverridePct ?? f.DefaultPct);
 
-        foreach (var share in Split(TotalPct, remaining))
+        foreach (var share in ShareRedistribution.Redistribute(remaining))
         {
             shares[share.Key] = share.Value;
         }

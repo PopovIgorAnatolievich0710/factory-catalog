@@ -7,6 +7,7 @@ import { StockStatusChip } from "../../../components/status-chips";
 import { COMPONENTS_URL } from "../../../constants/urls";
 import { StockStatus, StockStatuses } from "../../../entities/status";
 import { useFactories } from "../../../store/selectors/factoriesSelector";
+import { toKitStockStatus } from "../../components-catalog/utils/stock-status";
 import { MutedText, UsageChip } from "../components/sku-chips";
 import { SkuComponent, SkuComponentFactoryStock, SkuDetails } from "../entities";
 
@@ -20,11 +21,7 @@ const stockStatusLabels: Record<StockStatus, string> = {
     [StockStatuses.OosConflict]: "OOS conflict",
 };
 
-const toStockStatus = (stock: SkuComponentFactoryStock): StockStatus => {
-    if (stock.oosConflict) return StockStatuses.OosConflict;
-    if (stock.stockStatus === "OutOfStock") return StockStatuses.OutOfStock;
-    return stock.stockStatus === "Low" ? StockStatuses.Low : StockStatuses.Ok;
-};
+const toStockStatus = (stock: SkuComponentFactoryStock): StockStatus => toKitStockStatus(stock.stockStatus);
 
 const SkuComponentsTab: React.FC<{ sku: SkuDetails }> = ({ sku }) => {
     const history = useHistory();

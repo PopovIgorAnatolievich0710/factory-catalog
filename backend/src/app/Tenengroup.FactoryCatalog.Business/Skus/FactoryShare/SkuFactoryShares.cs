@@ -1,4 +1,6 @@
-namespace Tenengroup.FactoryCatalog.Domains.Skus;
+using Tenengroup.FactoryCatalog.Domains.Skus;
+
+namespace Tenengroup.FactoryCatalog.Business.Skus.FactoryShare;
 
 public static class SkuFactoryShares
 {

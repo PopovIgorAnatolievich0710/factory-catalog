@@ -37,7 +37,7 @@ public record SkuComponentDto(
     ComponentUsage Usage,
     IReadOnlyCollection<SkuComponentFactoryStockDto> Stock);
 
-public record SkuComponentFactoryStockDto(string FactoryId, decimal TotalStock, SkuComponentStockStatus StockStatus, bool OosConflict);
+public record SkuComponentFactoryStockDto(string FactoryId, decimal TotalStock, StockAlertStatus StockStatus);
 
 public record SkuProcessDto(
     string ProcessId,

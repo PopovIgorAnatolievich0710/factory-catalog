@@ -46,6 +46,11 @@ public class ImportProcessMappingsCommandHandler(
             foreach (var row in rows)
             {
                 var existing = sku.Processes.FirstOrDefault(p => p.ProcessId == row.ProcessId);
+                if (existing?.Quantity == row.Quantity)
+                {
+                    continue;
+                }
+
                 historyWriter.Record(HistoryEntityTypes.Sku, skuId, Field(row.ProcessId), existing?.Quantity, row.Quantity, HistorySource.Import);
                 if (existing == null)
                 {

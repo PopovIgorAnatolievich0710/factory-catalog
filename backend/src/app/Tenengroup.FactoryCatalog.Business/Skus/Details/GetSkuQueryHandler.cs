@@ -4,6 +4,7 @@ using Tenengroup.FactoryCatalog.Business.Abstractions.Skus.FactoryShare;
 using Tenengroup.FactoryCatalog.Business.Skus.FactoryShare;
 using Tenengroup.FactoryCatalog.Business.Skus.ProductionConflicts;
 using Tenengroup.FactoryCatalog.DataAccess.Abstractions;
+using Tenengroup.FactoryCatalog.Domains.Components;
 using Tenengroup.FactoryCatalog.Domains.Skus;
 using Tenengroup.Infrastructure.Common.Exceptions;
 using Tenengroup.Infrastructure.Common.Mediators;
@@ -88,14 +89,10 @@ public class GetSkuQueryHandler(
                     : factoryIds
                         .Select(factoryId =>
                         {
-                            var row = stocks.FirstOrDefault(s => s.ComponentErpId == component.ErpId && s.FactoryId == factoryId);
-                            var evaluated = SkuComponentStock.Evaluate(
-                                row?.WarehouseStock ?? 0,
-                                row?.ProductionFloorStock ?? 0,
-                                component.CriticalStockLevel,
-                                row?.CriticalStockLevelOverride,
-                                row?.ManualOosActive ?? false);
-                            return new SkuComponentFactoryStockDto(factoryId, evaluated.Total, evaluated.Status, evaluated.OosConflict);
+                            var row = stocks.FirstOrDefault(s => s.ComponentErpId == component.ErpId && s.FactoryId == factoryId)
+                                      ?? new ComponentFactory { ComponentErpId = component.ErpId, FactoryId = factoryId };
+                            return new SkuComponentFactoryStockDto(
+                                factoryId, row.GetTotalStock(), row.GetStockAlertStatus(component.CriticalStockLevel));
                         })
                         .ToList();
 

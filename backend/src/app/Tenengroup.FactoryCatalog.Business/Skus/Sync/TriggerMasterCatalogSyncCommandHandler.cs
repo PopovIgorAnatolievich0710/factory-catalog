@@ -11,9 +11,9 @@ public class TriggerMasterCatalogSyncCommandHandler(
     ISyncRunTracker syncRunTracker,
     ICurrentUser currentUser,
     IBackgroundJobClient backgroundJobs)
-    : IRequestHandler<TriggerMasterCatalogSyncCommand>
+    : IRequestHandler<TriggerMasterCatalogSyncCommand, SyncStatusDto>
 {
-    public async Task Handle(TriggerMasterCatalogSyncCommand request, CancellationToken cancellationToken)
+    public async Task<SyncStatusDto> Handle(TriggerMasterCatalogSyncCommand request, CancellationToken cancellationToken)
     {
         var triggeredBy = string.IsNullOrEmpty(currentUser.Email) ? currentUser.Name : currentUser.Email;
         var runId = await syncRunTracker.Start(SyncTypes.MasterCatalogSkus, triggeredBy, cancellationToken);
@@ -26,5 +26,7 @@ public class TriggerMasterCatalogSyncCommandHandler(
             await syncRunTracker.Fail(runId, e.Message, cancellationToken);
             throw;
         }
+
+        return await syncRunTracker.GetStatus(SyncTypes.MasterCatalogSkus, cancellationToken);
     }
 }
