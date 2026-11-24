@@ -25,6 +25,7 @@ public class Program
     public static IHostBuilder CreateHostBuilder(string[] args)
     {
         return Host.CreateDefaultBuilder(args)
+            .ConfigureAppConfiguration(config => config.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: false))
             .ConfigureLogging(logging => logging.ClearProviders())
             .UseConfiguredSerilog()
             .ConfigureWebHostDefaults(webBuilder => webBuilder.UseStartup<Startup>());

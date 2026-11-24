@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "factory-catalog-ui",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend/FactoryCatalogUI", "run", "dev"],
+      "port": 8080
+    },
+    {
+      "name": "factory-catalog-api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "backend/src/app/Tenengroup.FactoryCatalog.Api/Tenengroup.FactoryCatalog.Api.csproj", "--launch-profile", "Tenengroup.FactoryCatalog.Api"],
+      "port": 5010
+    },
+    {
+      "name": "balancer-api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "backend/src/app/Tenengroup.Balancer.Api/Tenengroup.Balancer.Api.csproj", "--launch-profile", "Tenengroup.Balancer.Api"],
+      "port": 5011
+    }
+  ]
+}
