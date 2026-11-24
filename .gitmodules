@@ -1,0 +1,3 @@
+[submodule "frontend/FactoryCatalogUI/bo-frontend"]
+	path = frontend/FactoryCatalogUI/bo-frontend
+	url = git@github.com:tenengroup/bo-frontend.git

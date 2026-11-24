@@ -1,0 +1,209 @@
+/* ============================================================
+   MUI Back Office Design System — Colors & Type
+   Source: Material UI v5 default theme + Roboto type scale
+   ============================================================ */
+
+/* ---------- Fonts ---------- */
+/* Roboto is the default MUI font. Inter and Roboto Mono are
+   commonly paired for back-office dashboards. We load via Google
+   Fonts CDN; if you need offline, drop .ttf files into /fonts. */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap');
+
+:root {
+  /* ===========================================================
+     COLOR — Material Design palette (primary, secondary, etc.)
+     Values lifted from @mui/material/colors and the default
+     light theme in createTheme().
+     =========================================================== */
+
+  /* Primary (Blue) */
+  --mui-primary-main: #1976d2;
+  --mui-primary-light: #42a5f5;
+  --mui-primary-dark: #1565c0;
+  --mui-primary-contrast: #ffffff;
+
+  /* Secondary (Purple) */
+  --mui-secondary-main: #9c27b0;
+  --mui-secondary-light: #ba68c8;
+  --mui-secondary-dark: #7b1fa2;
+  --mui-secondary-contrast: #ffffff;
+
+  /* Semantic */
+  --mui-error-main: #d32f2f;
+  --mui-error-light: #ef5350;
+  --mui-error-dark: #c62828;
+
+  --mui-warning-main: #ed6c02;
+  --mui-warning-light: #ff9800;
+  --mui-warning-dark: #e65100;
+
+  --mui-info-main: #0288d1;
+  --mui-info-light: #03a9f4;
+  --mui-info-dark: #01579b;
+
+  --mui-success-main: #2e7d32;
+  --mui-success-light: #4caf50;
+  --mui-success-dark: #1b5e20;
+
+  /* Greys (full ramp) */
+  --mui-grey-50:  #fafafa;
+  --mui-grey-100: #f5f5f5;
+  --mui-grey-200: #eeeeee;
+  --mui-grey-300: #e0e0e0;
+  --mui-grey-400: #bdbdbd;
+  --mui-grey-500: #9e9e9e;
+  --mui-grey-600: #757575;
+  --mui-grey-700: #616161;
+  --mui-grey-800: #424242;
+  --mui-grey-900: #212121;
+
+  /* Common */
+  --mui-common-black: #000000;
+  --mui-common-white: #ffffff;
+
+  /* ===========================================================
+     SEMANTIC TOKENS — light mode (default)
+     =========================================================== */
+  --mui-bg-default: #ffffff;
+  --mui-bg-paper:   #ffffff;
+  --mui-bg-canvas:  #f4f6f8;        /* common back-office canvas */
+  --mui-bg-subtle:  #f5f5f5;
+
+  --mui-text-primary:   rgba(0, 0, 0, 0.87);
+  --mui-text-secondary: rgba(0, 0, 0, 0.60);
+  --mui-text-disabled:  rgba(0, 0, 0, 0.38);
+
+  --mui-divider:        rgba(0, 0, 0, 0.12);
+  --mui-action-active:  rgba(0, 0, 0, 0.54);
+  --mui-action-hover:   rgba(0, 0, 0, 0.04);
+  --mui-action-selected:rgba(0, 0, 0, 0.08);
+  --mui-action-disabled:rgba(0, 0, 0, 0.26);
+  --mui-action-focus:   rgba(0, 0, 0, 0.12);
+
+  /* Friendly aliases */
+  --fg1: var(--mui-text-primary);
+  --fg2: var(--mui-text-secondary);
+  --fg3: var(--mui-text-disabled);
+  --bg1: var(--mui-bg-default);
+  --bg2: var(--mui-bg-canvas);
+  --bg3: var(--mui-bg-subtle);
+  --border: var(--mui-divider);
+
+  /* ===========================================================
+     SHADOWS — MUI elevation 0–24, key levels
+     =========================================================== */
+  --mui-shadow-0:  none;
+  --mui-shadow-1:  0px 2px 1px -1px rgba(0,0,0,0.2),0px 1px 1px 0px rgba(0,0,0,0.14),0px 1px 3px 0px rgba(0,0,0,0.12);
+  --mui-shadow-2:  0px 3px 1px -2px rgba(0,0,0,0.2),0px 2px 2px 0px rgba(0,0,0,0.14),0px 1px 5px 0px rgba(0,0,0,0.12);
+  --mui-shadow-4:  0px 2px 4px -1px rgba(0,0,0,0.2),0px 4px 5px 0px rgba(0,0,0,0.14),0px 1px 10px 0px rgba(0,0,0,0.12);
+  --mui-shadow-8:  0px 5px 5px -3px rgba(0,0,0,0.2),0px 8px 10px 1px rgba(0,0,0,0.14),0px 3px 14px 2px rgba(0,0,0,0.12);
+  --mui-shadow-16: 0px 8px 10px -5px rgba(0,0,0,0.2),0px 16px 24px 2px rgba(0,0,0,0.14),0px 6px 30px 5px rgba(0,0,0,0.12);
+  --mui-shadow-24: 0px 11px 15px -7px rgba(0,0,0,0.2),0px 24px 38px 3px rgba(0,0,0,0.14),0px 9px 46px 8px rgba(0,0,0,0.12);
+
+  /* ===========================================================
+     SHAPE — radii. MUI default is 4px. Back-office often uses
+     8px on cards, dialogs, larger surfaces.
+     =========================================================== */
+  --mui-radius-xs: 2px;
+  --mui-radius-sm: 4px;   /* shape.borderRadius default */
+  --mui-radius-md: 8px;
+  --mui-radius-lg: 12px;
+  --mui-radius-xl: 16px;
+  --mui-radius-pill: 9999px;
+
+  /* ===========================================================
+     SPACING — MUI uses an 8px base. theme.spacing(n) = n * 8.
+     =========================================================== */
+  --mui-space-0_5: 4px;
+  --mui-space-1:   8px;
+  --mui-space-1_5: 12px;
+  --mui-space-2:   16px;
+  --mui-space-3:   24px;
+  --mui-space-4:   32px;
+  --mui-space-5:   40px;
+  --mui-space-6:   48px;
+  --mui-space-8:   64px;
+  --mui-space-10:  80px;
+
+  /* ===========================================================
+     LAYOUT
+     =========================================================== */
+  --mui-appbar-height: 64px;
+  --mui-drawer-width:  240px;
+  --mui-toolbar-dense: 48px;
+
+  /* ===========================================================
+     TRANSITIONS — MUI standard easings
+     =========================================================== */
+  --mui-ease-standard:   cubic-bezier(0.4, 0, 0.2, 1);
+  --mui-ease-decelerate: cubic-bezier(0.0, 0, 0.2, 1);
+  --mui-ease-accelerate: cubic-bezier(0.4, 0, 1, 1);
+  --mui-ease-sharp:      cubic-bezier(0.4, 0, 0.6, 1);
+  --mui-dur-shortest: 150ms;
+  --mui-dur-shorter:  200ms;
+  --mui-dur-short:    250ms;
+  --mui-dur-standard: 300ms;
+  --mui-dur-complex:  375ms;
+
+  /* ===========================================================
+     TYPOGRAPHY
+     Base font is Roboto (300/400/500/700). MUI's type scale.
+     =========================================================== */
+  --font-sans: 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  --font-mono: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --fw-light: 300;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-bold: 700;
+}
+
+/* ===========================================================
+   TYPOGRAPHY — element-level helpers matching MUI variants.
+   Usage: <h1 class="mui-h1">, or just <h1> inside .mui-typography.
+   =========================================================== */
+.mui-typography, .mui-typography * { font-family: var(--font-sans); color: var(--mui-text-primary); }
+
+.mui-h1, h1.mui {
+  font-weight: 300; font-size: 6rem; line-height: 1.167; letter-spacing: -0.01562em;
+}
+.mui-h2, h2.mui {
+  font-weight: 300; font-size: 3.75rem; line-height: 1.2; letter-spacing: -0.00833em;
+}
+.mui-h3, h3.mui {
+  font-weight: 400; font-size: 3rem; line-height: 1.167; letter-spacing: 0;
+}
+.mui-h4, h4.mui {
+  font-weight: 400; font-size: 2.125rem; line-height: 1.235; letter-spacing: 0.00735em;
+}
+.mui-h5, h5.mui {
+  font-weight: 400; font-size: 1.5rem; line-height: 1.334; letter-spacing: 0;
+}
+.mui-h6, h6.mui {
+  font-weight: 500; font-size: 1.25rem; line-height: 1.6; letter-spacing: 0.0075em;
+}
+.mui-subtitle1 {
+  font-weight: 400; font-size: 1rem; line-height: 1.75; letter-spacing: 0.00938em;
+}
+.mui-subtitle2 {
+  font-weight: 500; font-size: 0.875rem; line-height: 1.57; letter-spacing: 0.00714em;
+}
+.mui-body1, p.mui {
+  font-weight: 400; font-size: 1rem; line-height: 1.5; letter-spacing: 0.00938em;
+}
+.mui-body2 {
+  font-weight: 400; font-size: 0.875rem; line-height: 1.43; letter-spacing: 0.01071em;
+}
+.mui-button-text {
+  font-weight: 500; font-size: 0.875rem; line-height: 1.75; letter-spacing: 0.02857em; text-transform: uppercase;
+}
+.mui-caption {
+  font-weight: 400; font-size: 0.75rem; line-height: 1.66; letter-spacing: 0.03333em;
+}
+.mui-overline {
+  font-weight: 400; font-size: 0.75rem; line-height: 2.66; letter-spacing: 0.08333em; text-transform: uppercase;
+}
+.mui-code {
+  font-family: var(--font-mono); font-size: 0.875rem; background: var(--mui-grey-100);
+  padding: 2px 6px; border-radius: var(--mui-radius-sm);
+}

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Tenengroup.FactoryCatalog.Business.UnitTests" />
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\infrastructure\Tenengroup.Infrastructure.Common\Tenengroup.Infrastructure.Common.csproj" />
+    <ProjectReference Include="..\Tenengroup.FactoryCatalog.Business.Abstractions\Tenengroup.FactoryCatalog.Business.Abstractions.csproj" />
+    <ProjectReference Include="..\Tenengroup.FactoryCatalog.DataAccess.Abstractions\Tenengroup.FactoryCatalog.DataAccess.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

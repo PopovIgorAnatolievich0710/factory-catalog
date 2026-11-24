@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Factory Catalog</title>
+<link rel="stylesheet" href="lib/colors_and_type.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0">
+<style>
+  html, body { margin: 0; padding: 0; background: #f4f6f8; }
+  * { box-sizing: border-box; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); border-radius: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+<template id="__bundler_thumbnail" data-bg-color="#f4f6f8">
+<svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#f4f6f8"/><g transform="translate(360,240)"><rect x="140" y="0" width="200" height="90" rx="14" fill="#6a1b9a"/><rect x="0" y="230" width="140" height="90" rx="14" fill="#1976d2"/><rect x="170" y="230" width="140" height="90" rx="14" fill="#1976d2"/><rect x="340" y="230" width="140" height="90" rx="14" fill="#1976d2" opacity=".45"/><g stroke="#6a1b9a" stroke-width="9" fill="none" stroke-linecap="round"><path d="M240 90v70"/><path d="M70 230v-40h380v40"/><path d="M240 160v30"/></g></g></svg>
+</template>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="lib/Components.jsx"></script>
+<script type="text/babel" src="lib/data.jsx"></script>
+<script type="text/babel" src="lib/masterLibraries.jsx"></script>
+<script type="text/babel" src="lib/designGroupData.jsx"></script>
+<script type="text/babel" src="lib/componentsData.jsx"></script>
+<script type="text/babel" src="lib/WorkflowComponents.jsx"></script>
+<script type="text/babel" src="lib/PerfData.jsx"></script>
+<script type="text/babel" src="lib/PerformanceView.jsx"></script>
+<script type="text/babel" src="lib/SkuPreferences.jsx"></script>
+<script type="text/babel" src="lib/ComponentsLibrary.jsx"></script>
+<script type="text/babel" src="lib/ComponentStockLevels.jsx"></script>
+<script type="text/babel" src="lib/processesData.jsx"></script>
+<script type="text/babel" src="lib/ProcessesLibrary.jsx"></script>
+<script type="text/babel" src="lib/ProcessControl.jsx"></script>
+<script type="text/babel" src="lib/SkuProcessesTab.jsx"></script>
+<script type="text/babel" src="lib/MyQueue.jsx"></script>
+<script type="text/babel" src="lib/GlobalPrices.jsx"></script>
+<script type="text/babel" src="lib/CatalogShell.jsx"></script>
+<script type="text/babel" src="lib/ProductsList.jsx"></script>
+<script type="text/babel" src="lib/DesignGroups.jsx"></script>
+<script type="text/babel" src="lib/DGStructure.jsx"></script>
+<script type="text/babel" src="lib/SectionCompare.jsx"></script>
+<script type="text/babel" src="lib/skuExtras.jsx"></script>
+<script type="text/babel" src="lib/ConfigTabs.jsx"></script>
+<script type="text/babel" src="lib/ProductTabs.jsx"></script>
+<script type="text/babel" src="lib/ProductDetail.jsx"></script>
+<script type="text/babel" src="lib/p1/p1Data.jsx"></script>
+<script type="text/babel" src="lib/p1/p1Ui.jsx"></script>
+<script type="text/babel" src="lib/p1/P1Components.jsx"></script>
+<script type="text/babel" src="lib/p1/P1Processes.jsx"></script>
+<script type="text/babel" src="lib/p1/P1Skus.jsx"></script>
+<script type="text/babel" src="lib/p1/P1Ops.jsx"></script>
+<script type="text/babel" src="lib/tweaks-panel.jsx"></script>
+
+<script type="text/babel">
+  const { useState, useEffect } = React;
+
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "scope": "phase1",
+    "p1role": "factory_manager",
+    "p1factory": "NZ",
+    "role": "product_designer",
+    "showOwnership": true,
+    "density": "compact",
+    "compareLayout": "side-by-side",
+    "openSku": "110-01-2568-21",
+    "showAuditDrawer": false
+  }/*EDITMODE-END*/;
+
+  function App() {
+    const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+    const [route, setRoute] = useState(TWEAK_DEFAULTS.scope === 'phase1' ? 'library' : 'products');
+    const [openSkuId, setOpenSkuId] = useState(tweaks.openSku || null);
+    const [openComponentId, setOpenComponentId] = useState(null);
+    const [openProcessId, setOpenProcessId] = useState(null);
+    const [openGroupCode, setOpenGroupCode] = useState(null);
+    const [toast, setToast] = useState(null);
+
+    const sku = openSkuId ? SKUS.find(s => s.product_id === openSkuId) : null;
+    const isP1 = tweaks.scope === 'phase1';
+    const [p1Sku, setP1Sku] = useState(null);
+    const [p1Comp, setP1Comp] = useState(null);
+    const [p1Proc, setP1Proc] = useState(null);
+    const p1Ctx = { role: tweaks.p1role, factory: tweaks.p1factory, user: p1User(tweaks.p1role, tweaks.p1factory), toast: (m) => showToast(m) };
+    const goP1 = (r, setter, id) => { setRoute(r); setP1Sku(null); setP1Comp(null); setP1Proc(null); if (setter) setter(id); };
+    const P1_ROUTES = ['products', 'library', 'processes', 'factory_share', 'component_stock', 'process_capacity', 'routing', 'balancer_log', 'daily_plan', 'transfers'];
+    const setScope = (v) => { setTweak('scope', v); setRoute(v === 'phase1' ? 'library' : 'products'); setOpenSkuId(null); setOpenComponentId(null); setOpenProcessId(null); setOpenGroupCode(null); setP1Sku(null); setP1Comp(null); setP1Proc(null); };
+
+    const showToast = (message, kind) => { setToast({ message, kind: kind || 'info' }); setTimeout(() => setToast(null), 3500); };
+
+    const handleAction = (action, target) => {
+      const labels = {
+        handoff: target === 'prod_review' ? 'Handed off to Production Supervisor.'
+              : target === 'pending'     ? 'Submitted to Catalog Manager.' : 'Handed off.',
+        approve: 'v' + (sku.versions.find(v => v.draft)?.version || '?') + ' approved — site managers can now publish.',
+      };
+      setToast({ message: labels[action] || 'Action completed.', kind: action === 'approve' ? 'success' : 'info' });
+      setTimeout(() => setToast(null), 3500);
+    };
+
+    const onOpen = (id) => { setOpenSkuId(id); setRoute('products'); };
+    const onBack = () => setOpenSkuId(null);
+    const onOpenGroup = (code) => { setOpenGroupCode(code); setOpenSkuId(null); setRoute('design_groups'); };
+
+    return (
+      <P1Context.Provider value={p1Ctx}>
+      <CatalogShell
+        scope={tweaks.scope}
+        p1={{ role: tweaks.p1role, factory: tweaks.p1factory, onRole: (r) => setTweak('p1role', r), onFactory: (f) => setTweak('p1factory', f) }}
+        role={tweaks.role}
+        onRole={(r) => setTweak('role', r)}
+        route={route}
+        onRoute={(r) => { if (isP1) return goP1(r); setRoute(r); if (r !== 'products') setOpenSkuId(null); if (r !== 'library') setOpenComponentId(null); if (r !== 'design_groups') setOpenGroupCode(null); }}
+        density={tweaks.density}
+      >
+        {isP1 && <>
+          {route === 'products' && !p1Sku && <P1ProductsList onOpen={setP1Sku}/>}
+          {route === 'products' && p1Sku && <P1SkuDetail id={p1Sku} onBack={() => setP1Sku(null)} onOpenComp={(id) => goP1('library', setP1Comp, id)} onOpenProc={(id) => goP1('processes', setP1Proc, id)}/>}
+          {route === 'library' && !p1Comp && <P1ComponentsList onOpen={setP1Comp}/>}
+          {route === 'library' && p1Comp && <P1ComponentDetail key={p1Comp} id={p1Comp} onBack={() => setP1Comp(null)} onOpenSku={(id) => goP1('products', setP1Sku, id)} onOpenComp={setP1Comp}/>}
+          {route === 'processes' && !p1Proc && <P1ProcessesList onOpen={setP1Proc}/>}
+          {route === 'processes' && p1Proc && <P1ProcessDetail id={p1Proc} onBack={() => setP1Proc(null)} onOpenSku={(id) => goP1('products', setP1Sku, id)}/>}
+          {route === 'factory_share' && <P1FactoryShare onOpen={(id) => goP1('products', setP1Sku, id)}/>}
+          {route === 'component_stock' && <P1StockLevels onOpen={(id) => goP1('library', setP1Comp, id)}/>}
+          {route === 'process_capacity' && <P1ProcessCapacity key={tweaks.p1role + tweaks.p1factory}/>}
+          {route === 'routing' && <P1RoutingDashboard/>}
+          {route === 'balancer_log' && <P1BalancerLog/>}
+          {route === 'daily_plan' && <P1DailyPlan key={tweaks.p1role + tweaks.p1factory}/>}
+          {route === 'transfers' && <P1Transfers key={tweaks.p1role + tweaks.p1factory}/>}
+          {!P1_ROUTES.includes(route) && <P1ComponentsList onOpen={setP1Comp}/>}
+        </>}
+        {!isP1 && <>
+        {route === 'products' && !sku && (
+          <ProductsList role={tweaks.role} onOpen={onOpen} onOpenGroup={onOpenGroup} density={tweaks.density}/>
+        )}
+        {route === 'products' && sku && (
+          <ProductDetail
+            sku={sku}
+            role={tweaks.role}
+            onBack={onBack}
+            onAction={handleAction}
+            onOpenGroup={onOpenGroup}
+            density={tweaks.density}
+            showOwnership={tweaks.showOwnership}
+            compareLayout={tweaks.compareLayout}
+          />
+        )}
+        {route === 'design_groups' && !openGroupCode && (
+          <DesignGroupsList onOpen={setOpenGroupCode} density={tweaks.density}/>
+        )}
+        {route === 'design_groups' && openGroupCode && (
+          <DesignGroupDetail code={openGroupCode} role={tweaks.role} onBack={() => setOpenGroupCode(null)} onOpenSku={onOpen} onToast={(m) => showToast(m)}/>
+        )}
+        {route === 'performance' && (
+          <PerformanceView/>
+        )}
+        {route === 'sku_preferences' && (
+          <SkuPreferences/>
+        )}
+        {route === 'library' && !openComponentId && (
+          <ComponentsList onOpen={setOpenComponentId}/>
+        )}
+        {route === 'library' && openComponentId && (
+          <ComponentDetail componentId={openComponentId} onBack={() => setOpenComponentId(null)}/>
+        )}
+        {route === 'component_stock' && (
+          <ComponentStockLevels/>
+        )}
+        {route === 'processes' && !openProcessId && (
+          <ProcessesList onOpen={setOpenProcessId}/>
+        )}
+        {route === 'processes' && openProcessId && (
+          <ProcessDetail processId={openProcessId} onBack={() => setOpenProcessId(null)}/>
+        )}
+        {route === 'process_control' && (
+          <ProcessControl/>
+        )}
+        {route === 'global_prices' && (
+          <GlobalPrices/>
+        )}
+        {route === 'queue' && (
+          <MyQueue role={tweaks.role} onOpen={onOpen}/>
+        )}
+        {route !== 'products' && route !== 'design_groups' && route !== 'performance' && route !== 'sku_preferences' && route !== 'library' && route !== 'component_stock' && route !== 'processes' && route !== 'process_control' && route !== 'queue' && route !== 'global_prices' && (
+          <PlaceholderScreen route={route}/>
+        )}
+        </>}
+
+        <TweaksPanel title="Tweaks" defaultPosition={{ right: 24, bottom: 24 }}>
+          <TweakSection label="Scope">
+            <TweakRadio label="Scope" value={tweaks.scope} onChange={setScope} options={[
+              { value: 'phase1', label: 'Phase 1' },
+              { value: 'full', label: 'Full vision' },
+            ]}/>
+          </TweakSection>
+          {isP1 && <TweakSection label="Persona">
+            <TweakSelect label="Acting as" value={tweaks.p1role} onChange={v => setTweak('p1role', v)} options={Object.values(P1_ROLES).map(r => ({ value: r.id, label: r.label }))}/>
+            {tweaks.p1role === 'factory_manager' && <TweakRadio label="Factory" value={tweaks.p1factory} onChange={v => setTweak('p1factory', v)} options={P1_F.map(f => ({ value: f, label: f }))}/>}
+          </TweakSection>}
+          {!isP1 && <>
+          <TweakSection label="Persona">
+            <TweakRadio label="Acting as" value={tweaks.role} onChange={v => setTweak('role', v)} options={[
+              { value: 'product_designer', label: 'Product designer' },
+              { value: 'production_manager', label: 'Production mgr' },
+            ]}/>
+            <TweakToggle label="Show field-ownership badges" checked={tweaks.showOwnership} onChange={v => setTweak('showOwnership', v)}/>
+          </TweakSection>
+          <TweakSection label="Demo SKU">
+            <TweakSelect label="Open SKU" value={tweaks.openSku || ''} onChange={v => { setTweak('openSku', v); setOpenSkuId(v); setRoute('products'); }} options={[
+              { value: '', label: '— List view —' },
+              ...SKUS.map(s => ({ value: s.product_id, label: (s.versions.find(v => v.live) || s.versions[0]).data.product_name + ' · ' + s.product_id }))
+            ]}/>
+          </TweakSection>
+          <TweakSection label="View">
+            <TweakRadio label="List density" value={tweaks.density} onChange={v => setTweak('density', v)} options={[
+              { value: 'comfortable', label: 'Comfortable' },
+              { value: 'compact',     label: 'Compact' },
+            ]}/>
+          </TweakSection>
+          </>}
+        </TweaksPanel>
+
+        {toast && (
+          <div style={{
+            position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+            padding: '12px 20px', borderRadius: 8,
+            background: toast.kind === 'success' ? '#2e7d32' : '#323232',
+            color: '#fff', fontSize: 14, fontWeight: 500,
+            boxShadow: '0px 5px 5px -3px rgba(0,0,0,0.2),0px 8px 10px 1px rgba(0,0,0,0.14),0px 3px 14px 2px rgba(0,0,0,0.12)',
+            zIndex: 100, display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <Icon name={toast.kind === 'success' ? 'check_circle' : 'info'} size={20}/>
+            {toast.message}
+          </div>
+        )}
+      </CatalogShell>
+      </P1Context.Provider>
+    );
+  }
+
+  function PlaceholderScreen({ route }) {
+    const labels = {
+      queue: 'My queue', library: 'Components library', suppliers: 'Suppliers',
+      audit: 'Audit log', reports: 'Reports', settings: 'Settings',
+    };
+    return (
+      <div style={{ padding: 60, textAlign: 'center', background: '#fff', borderRadius: 8, border: '1px solid rgba(0,0,0,0.12)' }}>
+        <Icon name="construction" size={48} sx={{ color: 'rgba(0,0,0,0.38)' }}/>
+        <h2 style={{ fontSize: 24, fontWeight: 400, margin: '16px 0 8px' }}>{labels[route] || route}</h2>
+        <p style={{ fontSize: 14, color: 'rgba(0,0,0,0.6)', margin: 0 }}>This area is out of scope for the prototype.<br/>Use <b>Products</b> to explore the SKU list and item view.</p>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

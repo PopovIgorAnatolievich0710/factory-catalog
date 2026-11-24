@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2015",
+    "lib": ["ES2021", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "jsx": "react-jsx",
+    "sourceMap": true,
+    "removeComments": true,
+    "downlevelIteration": true,
+    "isolatedModules": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["vite/client"]
+  },
+  "include": ["./src/**/*", "typings.d.ts"],
+  "exclude": ["node_modules", "**/*.spec.ts"]
+}

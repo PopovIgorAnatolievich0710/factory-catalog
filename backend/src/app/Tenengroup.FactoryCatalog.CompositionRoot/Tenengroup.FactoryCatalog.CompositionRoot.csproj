@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hangfire.PostgreSql" Version="1.21.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\infrastructure\Tenengroup.Infrastructure.Common\Tenengroup.Infrastructure.Common.csproj" />
+    <ProjectReference Include="..\Tenengroup.FactoryCatalog.Business.Abstractions\Tenengroup.FactoryCatalog.Business.Abstractions.csproj" />
+    <ProjectReference Include="..\Tenengroup.FactoryCatalog.Business\Tenengroup.FactoryCatalog.Business.csproj" />
+    <ProjectReference Include="..\Tenengroup.FactoryCatalog.DataAccess\Tenengroup.FactoryCatalog.DataAccess.csproj" />
+  </ItemGroup>
+
+</Project>

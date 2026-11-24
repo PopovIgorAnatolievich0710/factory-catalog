@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Factory Catalog admin UI</title>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+        <link rel="icon" href="/favicon.ico" />
+        <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400..800;1,400..800&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    </head>
+    <body>
+        <div id="root"></div>
+        <script>
+            window.env = {
+                APP_URL: '${FACTORY_CATALOG_BASE_FRONTEND_URL_ENV_VAR}',
+                AZURE_CLIENT_ID: '${AZURE_CLIENT_ID_ENV_VAR}',
+                AZURE_BACKEND_SCOPE: '${AZURE_BACKEND_SCOPE_ENV_VAR}',
+                AZURE_TENANT_ID: '${AZURE_TENANT_ID_ENV_VAR}',
+                FACTORY_CATALOG_BASE_API_URL: '${FACTORY_CATALOG_BASE_API_URL_ENV_VAR}',
+                BALANCER_BASE_API_URL: '${BALANCER_BASE_API_URL_ENV_VAR}',
+                SERVICES_CONFIG_URL: '${SERVICES_CONFIG_URL_ENV_VAR}',
+                SERVICE_NAME: 'Factory Catalog',
+            };
+        </script>
+        <script type="module" src="/src/index.tsx"></script>
+    </body>
+</html>
