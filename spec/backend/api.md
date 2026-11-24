@@ -1,7 +1,10 @@
 # Backend — REST API
 
 Base URL: `http://localhost:5010` (Factory Catalog API). Swagger UI at `/`. All routes are under `/v1` and require
-authentication (Azure AD bearer token or Basic). Module endpoints are documented in `spec/modules/*.md`.
+authentication (Azure AD bearer token or Basic). Module endpoints are documented in `spec/modules/*.md`:
+[components](../modules/1-components.md), [processes and capacity](../modules/2-process-capacity.md),
+[SKUs and factory share](../modules/3-skus.md), [quotes and legacy balancer](../modules/4a-quotes.md). The Balancer
+API (`http://localhost:5011`, same conventions) is documented in [`modules/4b-balancer.md`](../modules/4b-balancer.md).
 
 ## Conventions
 

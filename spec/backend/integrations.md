@@ -1,6 +1,7 @@
 # Backend — Integrations
 
-Contracts are assumptions until the owning team confirms (see `spec/open-questions.md`, section Integrations).
+Contracts are assumptions until the owning team confirms (see [`open-questions.md`](../open-questions.md), section
+"Blocking for go-live").
 Each integration is implemented and documented by its module; this file lists the shared plumbing.
 
 | Integration | Direction | Module spec |

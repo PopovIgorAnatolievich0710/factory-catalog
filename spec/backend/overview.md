@@ -18,6 +18,11 @@ backend/src/
 References: `Api → CompositionRoot → Business → Business.Abstractions → Common`; `Business → DataAccess.Abstractions → Domains`;
 `CompositionRoot → DataAccess`. Business never references `DataAccess` (only the context interface).
 
+The Balancer service (`Tenengroup.Balancer.Api` and its `Business`, `Domains`, `DataAccess`, `CompositionRoot`
+projects next to these) uses the same layering and `Tenengroup.Infrastructure.Common`, and calls the catalog over
+HTTP only. Its architecture, endpoints, schema and configuration: [`modules/4b-balancer.md`](../modules/4b-balancer.md).
+This file covers the Factory Catalog API; module features are in `spec/modules/*.md`.
+
 ## Layers
 
 ```

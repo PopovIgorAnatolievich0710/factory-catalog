@@ -1,5 +1,10 @@
 # Backend — Infrastructure & Configuration
 
+This file covers the Factory Catalog API. The Balancer API (port 5011, schemas `balancer` / `hangfire_balancer`)
+shares the database, auth, logging and AWS settings below and adds its own keys (`FactoryCatalog__*`,
+`ShipmentService__*`, `Balancer__*`, queues and topics): see "Configuration" in
+[`modules/4b-balancer.md`](../modules/4b-balancer.md). Deployment values: [`devops/overview.md`](../devops/overview.md).
+
 ## Environment variables (Factory Catalog API)
 
 All configuration comes from `appsettings.json` keys that can be overridden by environment variables
@@ -48,6 +53,9 @@ Logs go to stdout. `/ping` requests are not logged. Every log event of a request
 
 ### Integrations (read by the owning modules)
 
+Contracts: SAP export in [`modules/1-components.md`](../modules/1-components.md), master catalog in
+[`modules/3-skus.md`](../modules/3-skus.md).
+
 | Variable | Description |
 |---|---|
 | `SapExport__Bucket` | S3 bucket of the daily SAP export |
@@ -83,7 +91,10 @@ Hangfire with PostgreSQL storage, schema `hangfire` (created on first start), on
 queue. Dashboard: `/hangfire`, Basic auth with `API_SERVICE_USERNAME` / `API_SERVICE_USER_PASSWORD`.
 
 Recurring jobs are registered on startup by `RecurringJobsHostedService`, which calls the per-module
-`Register<Module>Jobs` methods in `CompositionRoot/Jobs`. The foundation registers none. The API needs a
+`Register<Module>Jobs` methods in `CompositionRoot/Jobs`. The foundation registers none; the modules register
+`sap-components-sync` (`SapExport:CronExpression`, [`modules/1-components.md`](../modules/1-components.md)) and
+`master-catalog-skus-sync` (`MasterCatalog:CronExpression`, [`modules/3-skus.md`](../modules/3-skus.md)). The
+Balancer's jobs and queue consumers are listed in [`modules/4b-balancer.md`](../modules/4b-balancer.md). The API needs a
 reachable PostgreSQL to start (Hangfire storage); build and unit tests do not.
 
 ## Local run

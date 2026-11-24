@@ -1,8 +1,9 @@
 # Backend — Database
 
 PostgreSQL 15+, database `factory_catalog`. This file documents the `catalog` schema owned by the Factory Catalog
-API (`FactoryCatalogDbContext`). The `balancer` schema is documented in `spec/modules/4b-balancer.md`; `hangfire`
-is created by Hangfire.
+API (`FactoryCatalogDbContext`). The `balancer` schema is documented in
+[`modules/4b-balancer.md`](../modules/4b-balancer.md) (section "Database — schema `balancer`"); `hangfire` and
+`hangfire_balancer` are created by Hangfire. Module rules behind the columns are in `spec/modules/*.md`.
 
 ## Conventions
 
@@ -34,14 +35,15 @@ History table: `catalog.__EFMigrationsHistory`.
 
 ## Tables by module
 
-| Module | Tables |
-|---|---|
-| Shared | `factory`, `user_factory`, `user_list_settings`, `history_entry`, `sync_run`, `feature_toggle` |
-| Components | `component`, `component_factory`, `component_alternative`, `component_replacement` |
-| Processes | `process`, `process_factory` |
-| SKUs | `sku`, `sku_alias`, `sku_component`, `sku_process`, `sku_factory`, `global_factory_share` |
-| Quotes | `quote_set`, `quote` |
-| Legacy balancer | `balancer_skip_log` |
+| Module | Tables | Module spec |
+|---|---|---|
+| Shared | `factory`, `user_factory`, `user_list_settings`, `history_entry`, `sync_run`, `feature_toggle` | — |
+| Components | `component`, `component_factory`, `component_alternative`, `component_replacement` | [`1-components.md`](../modules/1-components.md) |
+| Processes | `process`, `process_factory` | [`2-process-capacity.md`](../modules/2-process-capacity.md) |
+| SKUs | `sku`, `sku_alias`, `sku_component`, `sku_process`, `sku_factory`, `global_factory_share` | [`3-skus.md`](../modules/3-skus.md) |
+| Quotes | `quote_set`, `quote` | [`4a-quotes.md`](../modules/4a-quotes.md) |
+| Legacy balancer | `balancer_skip_log` | [`4a-quotes.md`](../modules/4a-quotes.md) |
+| Balancer service (schema `balancer`) | see module spec | [`4b-balancer.md`](../modules/4b-balancer.md) |
 
 `production_event` from the plan was dropped: after the decision of Nov 24 the balancer consumes the TG Supplier
 events and the catalog only stores the produced marking on `quote`.
@@ -68,6 +70,7 @@ events and the catalog only stores the produced marking on `quote`.
 | `sku_factory.override_share_pct` | null = the default share from `global_factory_share` applies |
 | `quote_set.request_id` | idempotency key of `POST /v1/quotes` |
 | `quote.quote_id` | public id, e.g. `PQ-ORD456789-ITM001-110` |
+| `quote.reasons` | `UPPER_SNAKE` reason codes of the quote (`quotes[].reasons[]`, e.g. `COMPONENT_OOS`); see "Reason codes" in [`modules/4a-quotes.md`](../modules/4a-quotes.md) |
 | `quote.status` | `Quoted` → `Selected` → `Produced`; `Transferred` when the item moved to another factory |
 | `quote.reproduction_of_quote_id` | set on the produced record created for a reproduction |
 | `quote.production_log` | processes and machines actually used, as reported with the "sent" event (S-20) |
@@ -421,6 +424,7 @@ One quote per factory in a quote set; status runs Quoted -> Selected -> Produced
 | `quote_set_id` | bigint | no |  |
 | `factory_id` | character varying(20) | no |  |
 | `producible` | boolean | no |  |
+| `reasons` | text[] | no |  |
 | `material_cost` | numeric(18,4) | yes |  |
 | `labor_cost` | numeric(18,4) | yes |  |
 | `packing_cost` | numeric(18,4) | yes |  |

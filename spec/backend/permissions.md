@@ -103,3 +103,10 @@ closed (403). Toggles are cached for 10 minutes, the group document for 20.
 - Current user and own-factory rule: `backend/src/app/Tenengroup.FactoryCatalog.Business/Shared/Users/CurrentUser.cs`
 - Toggle: `backend/src/app/Tenengroup.FactoryCatalog.Business/Shared/FeatureToggles/FeatureToggleService.cs`
 - Tests: `backend/src/tests/unit-tests/Tenengroup.FactoryCatalog.Business.UnitTests/{Permissions,Users}/`
+- Balancer API: same matrix and handler (shared project); own factory and the toggle come from the catalog
+  (`GET /v1/user/me`, `GET /v1/feature-toggle`), see "Authentication and permissions" in
+  [`modules/4b-balancer.md`](../modules/4b-balancer.md). Which permission each module endpoint needs is listed in
+  `spec/modules/*.md`.
+
+Open permission questions for the product owner: [`open-questions.md`](../open-questions.md) (OQ-15, OQ-17,
+OQ-88, OQ-104 – OQ-108).

@@ -16,13 +16,16 @@ documents its own entities and rules in `spec/modules/*.md`. Columns: [`database
 
 ## Module entities (owned by the modules)
 
-| Module | Entities | Enums |
-|---|---|---|
-| Components | `Component`, `ComponentFactory`, `ComponentAlternative`, `ComponentReplacement` | `ComponentStatus` |
-| Processes | `Process`, `ProcessFactory` | `ProcessType`, `ProcessStatus`, `ProcessUnit` |
-| Skus | `Sku`, `SkuAlias`, `SkuComponent`, `SkuProcess`, `SkuFactory`, `GlobalFactoryShare` | `SkuProductType`, `SkuStatus`, `SkuValidationStatus`, `SkuAliasType`, `ComponentUsage` |
-| Quotes | `QuoteSet`, `Quote` | `QuoteMode`, `QuoteStatus` |
-| LegacyBalancer | `BalancerSkipLog` | `SkipReason` |
+| Module | Entities | Enums | Module spec |
+|---|---|---|---|
+| Components | `Component`, `ComponentFactory`, `ComponentAlternative`, `ComponentReplacement` | `ComponentStatus` | [`1-components.md`](../modules/1-components.md) |
+| Processes | `Process`, `ProcessFactory` | `ProcessType`, `ProcessStatus`, `ProcessUnit` | [`2-process-capacity.md`](../modules/2-process-capacity.md) |
+| Skus | `Sku`, `SkuAlias`, `SkuComponent`, `SkuProcess`, `SkuFactory`, `GlobalFactoryShare` | `SkuProductType`, `SkuStatus`, `SkuValidationStatus`, `SkuAliasType`, `ComponentUsage` | [`3-skus.md`](../modules/3-skus.md) |
+| Quotes | `QuoteSet`, `Quote` | `QuoteMode`, `QuoteStatus` | [`4a-quotes.md`](../modules/4a-quotes.md) |
+| LegacyBalancer | `BalancerSkipLog` | `SkipReason` | [`4a-quotes.md`](../modules/4a-quotes.md) |
+
+The Balancer service has its own domain (`Tenengroup.Balancer.Domains`: allocations, transfers, production
+records, settings): [`modules/4b-balancer.md`](../modules/4b-balancer.md).
 
 ## Rules that span modules
 
