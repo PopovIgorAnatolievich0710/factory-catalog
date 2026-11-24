@@ -1,5 +1,6 @@
 export const Roles = {
     FactoryManager: "FC-FactoryManagers",
+    ShiftManager: "FC-ShiftManagers",
     SupplyChainManager: "FC-SupplyChainManagers",
     CatalogAdmin: "FC-CatalogAdmins",
     ProductionFloor: "FC-ProductionFloor",

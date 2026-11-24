@@ -19,6 +19,7 @@ export const Permissions = {
         EditCriticalLevels: "Components.EditCriticalLevels",
         EditAlternatives: "Components.EditAlternatives",
         ViewCost: "Components.ViewCost",
+        EditCost: "Components.EditCost",
     },
     Sync: {
         Monitor: "Sync.Monitor",
@@ -27,6 +28,7 @@ export const Permissions = {
     Processes: {
         View: "Processes.View",
         Edit: "Processes.Edit",
+        EditFactorySetup: "Processes.EditFactorySetup",
         EditCapacity: "Processes.EditCapacity",
         ViewCost: "Processes.ViewCost",
     },
@@ -42,6 +44,8 @@ export const Permissions = {
         ViewDashboards: "Balancer.ViewDashboards",
         EditReservations: "Balancer.EditReservations",
         ViewDimCost: "Balancer.ViewDimCost",
+        ViewDailyPlan: "Balancer.ViewDailyPlan",
+        Transfer: "Balancer.Transfer",
     },
 } as const;
 

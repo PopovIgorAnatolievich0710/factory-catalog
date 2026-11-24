@@ -17,18 +17,27 @@ const viewEveryModule: Permission[] = [
     P.Balancer.View,
 ];
 
+const factoryManagerPermissions: Permission[] = [
+    ...viewEveryModule,
+    P.Components.EditManualOos,
+    P.Processes.EditFactorySetup,
+    P.Processes.EditCapacity,
+    P.Processes.ViewCost,
+    P.Skus.EditProducible,
+    P.Skus.EditShareOverride,
+    P.Balancer.ViewDailyPlan,
+    P.Balancer.Transfer,
+];
+
 const RolePermissions: Record<Exclude<RoleCode, typeof Roles.BOAdministrator>, Permission[]> = {
-    [Roles.FactoryManager]: [
-        ...viewEveryModule,
-        P.Components.EditManualOos,
-        P.Processes.EditCapacity,
-        P.Skus.EditProducible,
-        P.Skus.EditShareOverride,
-    ],
+    [Roles.FactoryManager]: factoryManagerPermissions,
+    [Roles.ShiftManager]: factoryManagerPermissions,
     [Roles.SupplyChainManager]: [
         ...viewEveryModule,
         P.Components.EditCriticalLevels,
         P.Components.EditAlternatives,
+        P.Components.ViewCost,
+        P.Components.EditCost,
     ],
     [Roles.CatalogAdmin]: [
         ...viewEveryModule,
@@ -40,15 +49,12 @@ const RolePermissions: Record<Exclude<RoleCode, typeof Roles.BOAdministrator>, P
         P.Skus.EditGlobalShare,
         P.Skus.EditMappings,
     ],
-    [Roles.ProductionFloor]: [
-        P.Components.View,
-        P.Processes.View,
-        P.Skus.View,
-    ],
+    [Roles.ProductionFloor]: viewEveryModule,
     [Roles.OperationsManager]: [
         ...viewEveryModule,
         P.Balancer.ViewDashboards,
         P.Balancer.EditReservations,
+        P.Balancer.Transfer,
     ],
     [Roles.Finance]: [
         ...viewEveryModule,
