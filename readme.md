@@ -111,44 +111,197 @@ PGPASSWORD=<password> psql -h localhost -p 5432 -U <user> -d factory_catalog -v 
   -f backend/scripts/demo-data.sql
 ```
 
-## Database backup (run on another machine)
+## Restore the database backup (run on another machine)
 
-`backend/scripts/factory_catalog_backup.sql` is a plain `pg_dump` of the `catalog` and `balancer` schemas from a
-working local setup: schema, migration history and the demo data. Restoring it replaces "apply migrations + load demo
-data". The `hangfire` and `hangfire_balancer` schemas are not in it; the APIs create them on start.
+The fastest way to get a working copy on a new machine: restore the database from
+`backend/scripts/factory_catalog_backup.sql`, then start the two APIs and the UI from source.
 
-1. Clone with the UI submodule (needs access to `tenengroup/bo-frontend` over SSH):
+### What the backup contains
 
-   ```bash
-   git clone --recurse-submodules https://github.com/PopovIgorAnatolievich0710/factory-catalog.git
-   ```
+A plain-SQL `pg_dump` (about 500 KB) of the `catalog` and `balancer` schemas, taken on 2026-11-25 from a working local
+setup. It holds the tables, indexes, constraints, the EF migration history (`20261124133504_Initial` for the catalog,
+`20261124145246_Initial` for the balancer) and the demo data, so restoring it replaces both "apply the migrations" and
+"load the demo data".
 
-2. Start PostgreSQL 15+ on `localhost:5432` (`docker compose up -d`, or a local install) and restore into an
-   empty `factory_catalog` database:
+| Area | Rows |
+|---|---|
+| Factories | 3 (110, 125, 315) |
+| Components | 32 components, 96 component × factory rows, 7 alternatives |
+| Processes | 11 processes, 33 process × factory rows |
+| SKUs | 24 SKUs, 11 aliases, 84 component mappings, 118 process mappings, 72 factory rows, global share for 3 factories |
+| Quotes | 51 quote sets, 154 quotes |
+| Balancer | 50 allocations, 482 cost lines, 3 transfers, 27 production records, 21 cached routes, 10 legacy decisions, 2 capacity reservations, settings |
+| Audit | 31 history entries, 3 sync runs |
 
-   ```bash
-   createdb -h localhost -U postgres factory_catalog
-   psql -h localhost -U postgres -d factory_catalog -v ON_ERROR_STOP=1 -f backend/scripts/factory_catalog_backup.sql
-   ```
+Not included:
 
-   With `docker compose` the database already exists and the password is `postgres`; skip `createdb`. Without a
-   local `psql`, restore through the container:
+- `hangfire` and `hangfire_balancer`: the APIs create these schemas on start.
+- Passwords, keys or other secrets.
+- Access rows (`user_factory`) and feature toggles: both tables are empty. With the `permissions.enable_all` toggle
+  absent, permissions are not enforced and every signed-in user has full access.
 
-   ```bash
-   docker compose exec -T postgres psql -U postgres -d factory_catalog -v ON_ERROR_STOP=1 < backend/scripts/factory_catalog_backup.sql
-   ```
+### Prerequisites
 
-3. If the `postgres` password is not `postgres`, create `appsettings.Local.json` next to `appsettings.json` in both
-   `Tenengroup.FactoryCatalog.Api` and `Tenengroup.Balancer.Api` (the file is git-ignored):
+| Tool | Version | Used for |
+|---|---|---|
+| Git | any | clone with the UI submodule |
+| PostgreSQL | 15+ (local install or the `postgres` service from `docker compose`) | the database |
+| `psql` | 15+ (ships with PostgreSQL; not needed with Docker) | the restore |
+| .NET SDK | 10 | the APIs |
+| Node.js | 20+ | the UI |
+| Docker Desktop | optional | PostgreSQL and LocalStack without local installs |
 
-   ```json
-   { "DATABASE_USERNAME": "postgres", "DATABASE_PASSWORD": "<password>" }
-   ```
+Access needed:
 
-4. Start the APIs and the UI as in [Run locally](#run-locally-apis-and-ui-from-source), steps 3 and 4. Sign in with a
-   Tenengroup Microsoft account; with `permissions.enable_all` off every signed-in user has full access.
+- SSH access to `github.com/tenengroup/bo-frontend`: the UI submodule `frontend/FactoryCatalogUI/bo-frontend` comes
+  from there.
+- A Tenengroup Microsoft (Azure AD) account: the UI signs in through the Tenengroup tenant. `http://localhost:8080` is
+  the registered redirect address, so keep the UI on port 8080.
 
-Refresh the backup from a local database:
+Free ports: `5432` (PostgreSQL), `5010` (Factory Catalog API), `5011` (Balancer API), `8080` (UI).
+
+### 1. Clone
+
+```bash
+git clone --recurse-submodules https://github.com/PopovIgorAnatolievich0710/factory-catalog.git
+cd factory-catalog
+```
+
+Already cloned without the submodule: `git submodule update --init`.
+
+### 2. Restore the database
+
+Restore into an empty `factory_catalog` database. Pick one of the options.
+
+**A. Docker** (no local PostgreSQL needed). The `postgres` service creates the `factory_catalog` database and the empty
+schemas on first start; login `postgres` / `postgres`:
+
+```bash
+docker compose up -d postgres
+docker compose cp backend/scripts/factory_catalog_backup.sql postgres:/tmp/factory_catalog_backup.sql
+docker compose exec postgres psql -U postgres -d factory_catalog -v ON_ERROR_STOP=1 -f /tmp/factory_catalog_backup.sql
+```
+
+The same commands work in bash and PowerShell. Copying the file into the container avoids piping it through the shell,
+which in Windows PowerShell 5.1 would damage the non-ASCII characters in the data.
+
+**B. Local PostgreSQL**, bash:
+
+```bash
+export PGPASSWORD=<postgres password>
+createdb -h localhost -U postgres factory_catalog
+psql -h localhost -U postgres -d factory_catalog -v ON_ERROR_STOP=1 -f backend/scripts/factory_catalog_backup.sql
+```
+
+Windows PowerShell (adjust the PostgreSQL folder to the installed version):
+
+```powershell
+$env:PGPASSWORD = "<postgres password>"
+& "C:\Program Files\PostgreSQL\15\bin\createdb.exe" -h localhost -U postgres factory_catalog
+& "C:\Program Files\PostgreSQL\15\bin\psql.exe" -h localhost -U postgres -d factory_catalog -v ON_ERROR_STOP=1 -f backend/scripts/factory_catalog_backup.sql
+Remove-Item Env:PGPASSWORD
+```
+
+The script runs to the end with no `ERROR` lines; the `set_config` and `setval` rows it prints are normal.
+
+### 3. Check the restore
+
+```bash
+psql -h localhost -U postgres -d factory_catalog -c "select (select count(*) from catalog.component) as components, (select count(*) from catalog.sku) as skus, (select count(*) from catalog.quote) as quotes, (select count(*) from balancer.allocation) as allocations"
+```
+
+With Docker, run the same query through the container: `docker compose exec postgres psql -U postgres -d factory_catalog -c "<query>"`.
+
+Expected: `32 | 24 | 154 | 50`.
+
+### 4. Point the APIs at the database
+
+`appsettings.Development.json` already targets `localhost:5432`, database `factory_catalog`, login `postgres` /
+`postgres`. With any other login, create `appsettings.Local.json` next to `appsettings.json` in **both**
+`backend/src/app/Tenengroup.FactoryCatalog.Api` and `backend/src/app/Tenengroup.Balancer.Api`:
+
+```json
+{ "DATABASE_USERNAME": "postgres", "DATABASE_PASSWORD": "<password>" }
+```
+
+The file is git-ignored and overrides `appsettings.json` and `appsettings.Development.json`; `DATABASE_HOST`,
+`DATABASE_PORT` and `DATABASE_NAME` can go there too.
+
+### 5. Start the APIs and the UI
+
+Three terminals, from the repository root:
+
+```bash
+dotnet run --project backend/src/app/Tenengroup.FactoryCatalog.Api --launch-profile Tenengroup.FactoryCatalog.Api
+```
+
+```bash
+dotnet run --project backend/src/app/Tenengroup.Balancer.Api --launch-profile Tenengroup.Balancer.Api
+```
+
+```bash
+cd frontend/FactoryCatalogUI
+npm install --legacy-peer-deps
+npm run dev
+```
+
+LocalStack is optional: the APIs start and every screen works without it; only the AWS queue and file features need it
+(`docker compose up -d localstack`).
+
+### 6. Check that it runs
+
+| Check | Expected |
+|---|---|
+| http://localhost:5010/ping | `200` |
+| http://localhost:5011/ping | `200` |
+| http://localhost:5010 and http://localhost:5011 | Swagger |
+| http://localhost:8080 | Microsoft sign-in, then the Factory Catalog UI |
+
+After sign-in, Configurations → Components lists 32 components with stock statuses, Overview → Process capacity shows the
+factory grid, and Balancer → Routing dashboard shows the routing figures.
+
+### Move the demo dates to today
+
+The backup keeps the dates it was taken with (2026-11-25), so "today" figures such as quotes produced today or the
+dashboard's last days drift as time passes. `backend/scripts/demo-data.sql` rewrites only the demo rows with dates
+relative to the current time, and can be run any number of times on top of the restore:
+
+```bash
+psql -h localhost -U postgres -d factory_catalog -v ON_ERROR_STOP=1 -f backend/scripts/demo-data.sql
+```
+
+### Restore again from scratch
+
+Drop both schemas, then repeat step 2 (the `createdb` line is not needed):
+
+```bash
+psql -h localhost -U postgres -d factory_catalog -c "drop schema if exists catalog cascade; drop schema if exists balancer cascade; drop schema if exists hangfire cascade; drop schema if exists hangfire_balancer cascade"
+```
+
+With Docker, `docker compose down -v` followed by `docker compose up -d postgres` gives a fresh database.
+
+### Newer code on an older backup
+
+The APIs apply only missing migrations (`dotnet run --project <api project> -- migrate`), so after pulling commits that
+add migrations, run `migrate` for both APIs on top of the restored database.
+
+### Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| `password authentication failed for user "postgres"` (API log or `psql`) | Wrong login. Set `PGPASSWORD` for `psql`; put the login into `appsettings.Local.json` for the APIs (step 4). |
+| `database "factory_catalog" does not exist` | Run `createdb` (option B) or start the Docker `postgres` service (option A). |
+| `relation "..." already exists` during the restore | The database is not empty. Drop the schemas (see "Restore again from scratch") and restore again. |
+| `connection refused` on 5432 | PostgreSQL is not running, or listens on another port: set `DATABASE_PORT` in `appsettings.Local.json` and use `-p <port>` with `psql`. |
+| `address already in use` on 5010, 5011 or 8080 | Another process holds the port. Stop it; the UI must stay on 8080 for the Microsoft sign-in. |
+| UI shows "No access … has no Factory Catalog role" | The UI could not reach the Factory Catalog API. Start it and reload the page. |
+| `npm install` fails on peer dependencies | Use `npm install --legacy-peer-deps`. |
+| `frontend/FactoryCatalogUI/bo-frontend` is empty, or the UI build cannot resolve `bo-frontend` | The submodule is missing: `git submodule update --init` (needs SSH access to `tenengroup/bo-frontend`). |
+| Microsoft sign-in fails with a redirect URI error | The UI is not on `http://localhost:8080`. |
+
+### Refresh the backup
+
+From a working local database:
 
 ```bash
 pg_dump -h localhost -U postgres -d factory_catalog --schema=catalog --schema=balancer --no-owner --no-privileges \
@@ -156,7 +309,10 @@ pg_dump -h localhost -U postgres -d factory_catalog --schema=catalog --schema=ba
 sed -i 's/^CREATE SCHEMA \(catalog\|balancer\);/CREATE SCHEMA IF NOT EXISTS \1;/' backend/scripts/factory_catalog_backup.sql
 ```
 
-The `sed` line keeps the restore working on the `docker compose` database, which creates the schemas on first start.
+The `sed` line keeps the restore working on the Docker database, which already has the schemas. `--no-owner
+--no-privileges` keeps the dump restorable under any login. `backend/scripts/.gitattributes` keeps `.sql` files with LF
+line endings on every checkout. Before committing, check that the dump has no passwords or personal data: the
+repository is public.
 
 ## Build and test
 
