@@ -97,6 +97,20 @@ dotnet ef migrations add "<MigrationName>" --context BalancerDbContext \
   --startup-project backend/src/app/Tenengroup.Balancer.Api
 ```
 
+## Demo data
+
+`backend/scripts/demo-data.sql` fills a local database with realistic sample data for every UI screen: components
+with stock in factories 110, 125 and 315 (ok, low, out of stock, manual OOS and OOS conflict), processes with capacity,
+SKUs with mappings and factory share, sync runs, history entries, quotes and balancer decisions, transfers and
+production records over the last 14 days. It is for local development only; never run it against a shared
+environment. Apply both migrations first; the script runs in one transaction and can be re-run (it deletes its own
+rows before inserting them again, dates are relative to the current time):
+
+```bash
+PGPASSWORD=<password> psql -h localhost -p 5432 -U <user> -d factory_catalog -v ON_ERROR_STOP=1 \
+  -f backend/scripts/demo-data.sql
+```
+
 ## Build and test
 
 ```bash
