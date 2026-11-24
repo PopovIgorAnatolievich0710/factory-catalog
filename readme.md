@@ -1,7 +1,9 @@
 # Factory Catalog + Balancer
 
 Two .NET 10 APIs and one React admin UI. Documentation: [`spec/README.md`](./spec/README.md);
-deployment: [`spec/devops/overview.md`](./spec/devops/overview.md).
+deployment: [`spec/devops/overview.md`](./spec/devops/overview.md). Open questions left after the implementation, each
+with the variant that was implemented: [`spec/open-questions.md`](./spec/open-questions.md) (per-module sources in
+[`spec/questions/`](./spec/questions)).
 
 | Deployable | Project | Local URL |
 |---|---|---|
