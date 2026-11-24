@@ -111,6 +111,53 @@ PGPASSWORD=<password> psql -h localhost -p 5432 -U <user> -d factory_catalog -v 
   -f backend/scripts/demo-data.sql
 ```
 
+## Database backup (run on another machine)
+
+`backend/scripts/factory_catalog_backup.sql` is a plain `pg_dump` of the `catalog` and `balancer` schemas from a
+working local setup: schema, migration history and the demo data. Restoring it replaces "apply migrations + load demo
+data". The `hangfire` and `hangfire_balancer` schemas are not in it; the APIs create them on start.
+
+1. Clone with the UI submodule (needs access to `tenengroup/bo-frontend` over SSH):
+
+   ```bash
+   git clone --recurse-submodules https://github.com/PopovIgorAnatolievich0710/factory-catalog.git
+   ```
+
+2. Start PostgreSQL 15+ on `localhost:5432` (`docker compose up -d`, or a local install) and restore into an
+   empty `factory_catalog` database:
+
+   ```bash
+   createdb -h localhost -U postgres factory_catalog
+   psql -h localhost -U postgres -d factory_catalog -v ON_ERROR_STOP=1 -f backend/scripts/factory_catalog_backup.sql
+   ```
+
+   With `docker compose` the database already exists and the password is `postgres`; skip `createdb`. Without a
+   local `psql`, restore through the container:
+
+   ```bash
+   docker compose exec -T postgres psql -U postgres -d factory_catalog -v ON_ERROR_STOP=1 < backend/scripts/factory_catalog_backup.sql
+   ```
+
+3. If the `postgres` password is not `postgres`, create `appsettings.Local.json` next to `appsettings.json` in both
+   `Tenengroup.FactoryCatalog.Api` and `Tenengroup.Balancer.Api` (the file is git-ignored):
+
+   ```json
+   { "DATABASE_USERNAME": "postgres", "DATABASE_PASSWORD": "<password>" }
+   ```
+
+4. Start the APIs and the UI as in [Run locally](#run-locally-apis-and-ui-from-source), steps 3 and 4. Sign in with a
+   Tenengroup Microsoft account; with `permissions.enable_all` off every signed-in user has full access.
+
+Refresh the backup from a local database:
+
+```bash
+pg_dump -h localhost -U postgres -d factory_catalog --schema=catalog --schema=balancer --no-owner --no-privileges \
+  -f backend/scripts/factory_catalog_backup.sql
+sed -i 's/^CREATE SCHEMA \(catalog\|balancer\);/CREATE SCHEMA IF NOT EXISTS \1;/' backend/scripts/factory_catalog_backup.sql
+```
+
+The `sed` line keeps the restore working on the `docker compose` database, which creates the schemas on first start.
+
 ## Build and test
 
 ```bash
