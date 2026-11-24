@@ -1,0 +1,519 @@
+global:
+  build: ${build_tag}
+
+rbac:
+  create: false
+networkPolicy:
+  enabled: false
+
+pdb:
+  enabled: ${is_pdb_enabled}
+  minAvailable: 1
+
+postgresql:
+  enabled: ${k8s_postgresql_enabled}
+  image:
+    debug: false
+  global:
+    storageClass: gp3
+    postgresql:
+      auth:
+        postgresPassword: '${POSTGRESQL_ADMIN_PASSWORD}'
+        database: ${database_name}
+  auth:
+    enablePostgresUser: true
+
+  primary:
+    initdb:
+      scriptsConfigMap: initdbscripts-${release_name}
+      user: postgres
+      password: '${POSTGRESQL_ADMIN_PASSWORD}'
+
+    service:
+      type: NodePort
+
+    persistence:
+      enabled: true
+      size: 20Gi
+
+  resources:
+    requests:
+      memory: 50Mi
+    limits:
+      cpu: 1000m
+      memory: 2048Mi
+
+  ingress:
+    enabled: false
+
+deployments:
+  main:
+    enabled: true
+    replicaCount: ${replica_count}
+    priorityClassName: ${priorityClassName}
+    topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          build: ${build_tag}
+          deployment: ${release_name}-main
+    - maxSkew: 2
+      topologyKey: eks.amazonaws.com/capacityType
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          build: ${build_tag}
+          deployment: ${release_name}-main
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 30
+          preference:
+            matchExpressions:
+            - key: "eks.amazonaws.com/capacityType"
+              operator: In
+              values:
+              - ${preferredCapacityType}
+
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+                - key: build
+                  operator: In
+                  values:
+                    - ${build_tag}
+                - key: deployment
+                  operator: In
+                  values:
+                    - ${release_name}-main
+            topologyKey: "kubernetes.io/hostname"
+
+    initContainers:
+      sql-migrations:
+        enabled: true
+        image:
+          repository: tenen/${project_name}-main
+          tag: "${context_hash_main}"
+        command: [ "dotnet" ]
+        extraArgs: [ "Tenengroup.FactoryCatalog.Api.dll", "migrate" ]
+
+        env_vars:
+          ASPNETCORE_ENVIRONMENT: ${aspnetcore_environment}
+          DATABASE_HOST: ${database_host_for_k8s_access}
+          DATABASE_PORT: "5432"
+          DATABASE_NAME: ${database_name}
+          DATABASE_USERNAME: ${db_migrations_username}
+          DATABASE_PASSWORD: ${db_password_migrations}
+
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+          limits:
+            cpu: 2000m
+            memory: 4096Mi
+
+    serviceAccountName: "${k8s_namespace}"
+    securityContext:
+      fsGroup: 65534
+
+    containers:
+      main:
+        enabled: true
+
+        image:
+          repository: tenen/${project_name}-main
+          tag: "${context_hash_main}"
+
+        extraArgs: {}
+
+        ports:
+        - containerPort: 5010
+
+        livenessProbe:
+          httpGet:
+            path: "${liveness_probe_path}"
+            port: 5010
+          initialDelaySeconds: 60
+          timeoutSeconds: 7
+          periodSeconds: 10
+
+        readinessProbe:
+          httpGet:
+            path: "${readiness_probe_path}"
+            port: 5010
+          initialDelaySeconds: 30
+          timeoutSeconds: 7
+          periodSeconds: 10
+
+        persistentVolumeMounts: {}
+
+        service:
+          annotations: {}
+          labels: {}
+          clusterIP: ""
+          externalIPs: []
+          ports:
+            http:
+              servicePort: 80
+              targetPort: 5010
+              protocol: TCP
+          type: ClusterIP
+
+        ingress:
+          main:
+            enabled: true
+            path: /
+            servicePort: 80
+            annotations:
+              kubernetes.io/ingress.class: "${ingress_class}"
+              nginx.ingress.kubernetes.io/client-body-buffer-size: 3M
+              nginx.ingress.kubernetes.io/proxy-body-size: 20m
+              cert-manager.io/cluster-issuer: ${cert_manager_issuer_name}
+              cert-manager.io/renew-before:   ${cert_renewal_time}
+
+            hosts:
+              - ${app_host_main}
+
+            tls:
+              - secretName: ${cert_secret_name_main}
+                hosts:
+                  - ${app_host_main}
+
+        env_vars:
+          ASPNETCORE_ENVIRONMENT: ${aspnetcore_environment}
+          DATABASE_HOST: ${database_host_for_k8s_access}
+          DATABASE_PORT: "5432"
+          DATABASE_NAME: ${database_name}
+          DATABASE_USERNAME: ${db_migrations_username}
+          DATABASE_PASSWORD: ${db_password_migrations}
+          Kestrel__Endpoints__Http__Url: "http://0.0.0.0:5010"
+          API_SERVICE_USERNAME: ${api_service_username}
+          API_SERVICE_USER_PASSWORD: ${api_service_user_password}
+          AzureAd__Instance: "https://login.microsoftonline.com/"
+          AzureAd__TenantId: "${azure_tenant_id}"
+          AzureAd__ClientId: "${azure_api_client_id}"
+          GROUP_PERMISSIONS_URL: "${group_permissions_url}"
+          CORS_ALLOWED_HOSTS: "${cors_allowed_hosts}"
+          Serilog__MinimumLevel__Default: "${log_level}"
+          Aws__DefaultRegion: "${aws_region}"
+          AWS_DEFAULT_REGION: "${aws_region}"
+          Aws__AccessKey: "${aws_access_key}"
+          Aws__SecretKey: "${aws_secret_key}"
+          SapExport__Bucket: "${sap_export_bucket_name}"
+          SapExport__Prefix: "${sap_export_prefix}"
+          SapExport__CronExpression: "${sap_export_cron}"
+          MasterCatalog__BaseUrl: "${master_catalog_base_url}"
+          MasterCatalog__Username: "${master_catalog_username}"
+          MasterCatalog__Password: "${master_catalog_password}"
+          MasterCatalog__CronExpression: "${master_catalog_cron}"
+          DD_AGENT_HOST: "datadog-agent.datadog.svc.cluster.local"
+          DD_TRACE_AGENT_PORT: "8126"
+          DD_DOGSTATSD_PORT: "8125"
+          DD_ENV: "${deploy_env}"
+          DD_SERVICE: "factory-catalog"
+          DD_VERSION: "${app_version}"
+          DD_LOGS_DIRECT_SUBMISSION_MINIMUM_LEVEL: "${log_level}"
+          DDUrl: "tcp-intake.logs.datadoghq.eu"
+          DD_API_KEY: "${datadog_api_key}"
+          DD_SITE: "datadoghq.eu"
+
+  balancer:
+    enabled: true
+    replicaCount: ${replica_count}
+    priorityClassName: ${priorityClassName}
+    topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          build: ${build_tag}
+          deployment: ${release_name}-balancer
+    - maxSkew: 2
+      topologyKey: eks.amazonaws.com/capacityType
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          build: ${build_tag}
+          deployment: ${release_name}-balancer
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 30
+          preference:
+            matchExpressions:
+            - key: "eks.amazonaws.com/capacityType"
+              operator: In
+              values:
+              - ${preferredCapacityType}
+
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+                - key: build
+                  operator: In
+                  values:
+                    - ${build_tag}
+                - key: deployment
+                  operator: In
+                  values:
+                    - ${release_name}-balancer
+            topologyKey: "kubernetes.io/hostname"
+
+    initContainers:
+      sql-migrations:
+        enabled: true
+        image:
+          repository: tenen/${project_name}-balancer
+          tag: "${context_hash_balancer}"
+        command: [ "dotnet" ]
+        extraArgs: [ "Tenengroup.Balancer.Api.dll", "migrate" ]
+
+        env_vars:
+          ASPNETCORE_ENVIRONMENT: ${aspnetcore_environment}
+          DATABASE_HOST: ${database_host_for_k8s_access}
+          DATABASE_PORT: "5432"
+          DATABASE_NAME: ${database_name}
+          DATABASE_USERNAME: ${db_migrations_username}
+          DATABASE_PASSWORD: ${db_password_migrations}
+
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+          limits:
+            cpu: 2000m
+            memory: 4096Mi
+
+    serviceAccountName: "${k8s_namespace}"
+    securityContext:
+      fsGroup: 65534
+
+    containers:
+      main:
+        enabled: true
+
+        image:
+          repository: tenen/${project_name}-balancer
+          tag: "${context_hash_balancer}"
+
+        extraArgs: {}
+
+        ports:
+        - containerPort: 5011
+
+        livenessProbe:
+          httpGet:
+            path: "${liveness_probe_path}"
+            port: 5011
+          initialDelaySeconds: 60
+          timeoutSeconds: 7
+          periodSeconds: 10
+
+        readinessProbe:
+          httpGet:
+            path: "${readiness_probe_path}"
+            port: 5011
+          initialDelaySeconds: 30
+          timeoutSeconds: 7
+          periodSeconds: 10
+
+        persistentVolumeMounts: {}
+
+        service:
+          annotations: {}
+          labels: {}
+          clusterIP: ""
+          externalIPs: []
+          ports:
+            http:
+              servicePort: 80
+              targetPort: 5011
+              protocol: TCP
+          type: ClusterIP
+
+        ingress:
+          main:
+            enabled: true
+            path: /
+            servicePort: 80
+            annotations:
+              kubernetes.io/ingress.class: "${ingress_class}"
+              nginx.ingress.kubernetes.io/client-body-buffer-size: 3M
+              nginx.ingress.kubernetes.io/proxy-body-size: 20m
+              cert-manager.io/cluster-issuer: ${cert_manager_issuer_name}
+              cert-manager.io/renew-before:   ${cert_renewal_time}
+
+            hosts:
+              - ${app_host_balancer}
+
+            tls:
+              - secretName: ${cert_secret_name_balancer}
+                hosts:
+                  - ${app_host_balancer}
+
+        env_vars:
+          ASPNETCORE_ENVIRONMENT: ${aspnetcore_environment}
+          DATABASE_HOST: ${database_host_for_k8s_access}
+          DATABASE_PORT: "5432"
+          DATABASE_NAME: ${database_name}
+          DATABASE_USERNAME: ${db_migrations_username}
+          DATABASE_PASSWORD: ${db_password_migrations}
+          Kestrel__Endpoints__Http__Url: "http://0.0.0.0:5011"
+          API_SERVICE_USERNAME: ${api_service_username}
+          API_SERVICE_USER_PASSWORD: ${api_service_user_password}
+          AzureAd__Instance: "https://login.microsoftonline.com/"
+          AzureAd__TenantId: "${azure_tenant_id}"
+          AzureAd__ClientId: "${azure_api_client_id}"
+          GROUP_PERMISSIONS_URL: "${group_permissions_url}"
+          CORS_ALLOWED_HOSTS: "${cors_allowed_hosts}"
+          Serilog__MinimumLevel__Default: "${log_level}"
+          Aws__DefaultRegion: "${aws_region}"
+          AWS_DEFAULT_REGION: "${aws_region}"
+          Aws__AccessKey: "${aws_access_key}"
+          Aws__SecretKey: "${aws_secret_key}"
+          FactoryCatalog__BaseUrl: "${catalog_internal_url}"
+          FactoryCatalog__Username: ${api_service_username}
+          FactoryCatalog__Password: ${api_service_user_password}
+          ShipmentService__BaseUrl: "${shipment_service_base_url}"
+          ShipmentService__Username: "${shipment_service_username}"
+          ShipmentService__Password: "${shipment_service_password}"
+          OrderItems__QueueUrl: ${ocs_order_items_queue_url}
+          SupplierEvents__QueueUrl: ${supplier_events_queue_url}
+          BalancerEvents__AllocationDecidedTopicArn: ${allocation_decided_topic_arn}
+          BalancerEvents__QuoteProducedTopicArn: ${quote_produced_topic_arn}
+          DD_AGENT_HOST: "datadog-agent.datadog.svc.cluster.local"
+          DD_TRACE_AGENT_PORT: "8126"
+          DD_DOGSTATSD_PORT: "8125"
+          DD_ENV: "${deploy_env}"
+          DD_SERVICE: "factory-catalog-balancer"
+          DD_VERSION: "${app_version}"
+          DD_LOGS_DIRECT_SUBMISSION_MINIMUM_LEVEL: "${log_level}"
+          DDUrl: "tcp-intake.logs.datadoghq.eu"
+          DD_API_KEY: "${datadog_api_key}"
+          DD_SITE: "datadoghq.eu"
+
+  ui:
+    enabled: true
+    replicaCount: ${replica_count}
+    priorityClassName: ${priorityClassName}
+    topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          build: ${build_tag}
+          deployment: ${release_name}-ui
+    - maxSkew: 2
+      topologyKey: eks.amazonaws.com/capacityType
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          build: ${build_tag}
+          deployment: ${release_name}-ui
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 30
+          preference:
+            matchExpressions:
+            - key: "eks.amazonaws.com/capacityType"
+              operator: In
+              values:
+              - ${preferredCapacityType}
+
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+                - key: build
+                  operator: In
+                  values:
+                    - ${build_tag}
+                - key: deployment
+                  operator: In
+                  values:
+                    - ${release_name}-ui
+            topologyKey: "kubernetes.io/hostname"
+
+    serviceAccountName: "${k8s_namespace}"
+    securityContext:
+      fsGroup: 65534
+
+    containers:
+      main:
+        enabled: true
+
+        image:
+          repository: tenen/${project_name}-ui
+          tag: "${context_hash_ui}"
+
+        extraArgs: {}
+
+        ports:
+        - containerPort: 80
+
+        livenessProbe:
+          httpGet:
+            path: "${liveness_probe_path}"
+            port: 80
+          initialDelaySeconds: 60
+          timeoutSeconds: 7
+          periodSeconds: 10
+
+        readinessProbe:
+          httpGet:
+            path: "${readiness_probe_path}"
+            port: 80
+          initialDelaySeconds: 30
+          timeoutSeconds: 7
+          periodSeconds: 10
+
+        persistentVolumeMounts: {}
+
+        service:
+          annotations: {}
+          labels: {}
+          clusterIP: ""
+          externalIPs: []
+          ports:
+            http:
+              servicePort: 80
+              targetPort: 80
+              protocol: TCP
+          type: ClusterIP
+
+        ingress:
+          main:
+            enabled: true
+            path: /
+            servicePort: 80
+            annotations:
+              kubernetes.io/ingress.class: "${ingress_class}"
+              nginx.ingress.kubernetes.io/client-body-buffer-size: 3M
+              nginx.ingress.kubernetes.io/proxy-body-size: 3m
+              cert-manager.io/cluster-issuer: ${cert_manager_issuer_name}
+              cert-manager.io/renew-before:   ${cert_renewal_time}
+
+            hosts:
+              - ${app_host_ui}
+
+            tls:
+              - secretName: ${cert_secret_name_ui}
+                hosts:
+                  - ${app_host_ui}
+
+        env_vars:
+          FACTORY_CATALOG_BASE_FRONTEND_URL_ENV_VAR: "${ui_url}"
+          FACTORY_CATALOG_BASE_API_URL_ENV_VAR: "${main_url}/"
+          BALANCER_BASE_API_URL_ENV_VAR: "${balancer_url}/"
+          AZURE_CLIENT_ID_ENV_VAR: "${azure_ui_client_id}"
+          AZURE_BACKEND_SCOPE_ENV_VAR: "${azure_backend_scope}"
+          AZURE_TENANT_ID_ENV_VAR: "${azure_tenant_id}"
+          SERVICES_CONFIG_URL_ENV_VAR: ${services_config_url}
