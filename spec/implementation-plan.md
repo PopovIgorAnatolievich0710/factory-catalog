@@ -203,6 +203,23 @@ and commits to its branch.
 Merge the six branches, regenerate the `Initial` migrations, full build + unit tests + frontend build,
 consolidate `spec/questions/*.md` into `spec/open-questions.md`, finalize the spec index, report.
 
+### Wave 3 — local run (orchestrator)
+
+Once implementation is finished, start the whole system locally and check that it comes up:
+
+1. Local PostgreSQL 15 on `localhost:5432`, database `factory_catalog`. Credentials come from environment variables
+   (`DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`) or a git-ignored
+   `appsettings.Local.json` — never committed.
+2. Apply both migrations with the `migrate` argument: catalog API, then Balancer API.
+3. Start the Factory Catalog API (`http://localhost:5010`, Swagger at `/`), the Balancer API (`http://localhost:5011`)
+   and the UI dev server (`http://localhost:8080`). Run configurations live in `.claude/launch.json`.
+4. Smoke check: `/ping` on both APIs, Swagger loads, a Basic-auth call to `GET /v1/factories` and
+   `POST /v1/components/search` returns 200, and the UI shell renders with its navigation.
+5. Out of scope for the local run: AWS (LocalStack is optional, the jobs that need S3 / SQS / SNS will log errors),
+   the master catalog and shipment service (not running locally), and Azure AD login in the UI (needs a signed-in user;
+   with `permissions.enable_all` off every authenticated user has full access).
+6. Report what came up, what failed and why, in the final summary.
+
 ---
 
 ## 7. Out of scope for this pass
