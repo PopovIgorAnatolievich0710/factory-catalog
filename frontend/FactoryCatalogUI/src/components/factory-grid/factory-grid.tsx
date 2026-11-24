@@ -71,7 +71,7 @@ const FactoryGrid: React.FC<FactoryGridProps> = ({ columns, factories, isRowHigh
                                 }}>
                                 <TableCell
                                     sx={{ ...tableStyles.bodyCell, fontWeight: 500, opacity: disabled ? DISABLED_OPACITY : 1 }}>
-                                    {factory.name} ({factory.countryCode})
+                                    {factory.countryCode ? `${factory.name} (${factory.countryCode})` : factory.name}
                                 </TableCell>
                                 {columns.map(column => (
                                     <TableCell

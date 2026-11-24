@@ -186,6 +186,9 @@ The parser is behind `ISapExportReader` (`SapCsvExportReader`), so another forma
 - The run fails as a whole when a file is missing, a required column is missing or `components.csv` has no valid
   row (so an empty file cannot deactivate the catalog).
 - Counts: `added` = new components, `updated` = existing components whose master data or stock changed.
+- After the changes are saved, every SKU's mapping is revalidated (`SkuMappingValidator.ValidateAll` from the SKUs
+  module, history source `Sync`, changed by `SAP sync`) before the run is completed, so a SKU using a component
+  that has just become inactive is flagged `Invalid` right away. A validation failure fails the run.
 
 ### Config keys
 

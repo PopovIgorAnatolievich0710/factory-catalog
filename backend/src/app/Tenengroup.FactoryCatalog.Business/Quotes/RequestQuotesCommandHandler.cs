@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Tenengroup.FactoryCatalog.Business.Abstractions.Processes;
 using Tenengroup.FactoryCatalog.Business.Abstractions.Quotes;
 using Tenengroup.FactoryCatalog.Business.Abstractions.Shared.Users;
 using Tenengroup.FactoryCatalog.DataAccess.Abstractions;
@@ -15,6 +16,7 @@ public class RequestQuotesCommandHandler(
     IFactoryCatalogDbContext db,
     ICurrentUser currentUser,
     TimeProvider timeProvider,
+    IProcessUsageReader usageReader,
     QuotesOptions options) : IRequestHandler<RequestQuotesCommand, QuoteSetDto>
 {
     private const int MaxOrderKeyLength = 90;
@@ -220,7 +222,7 @@ public class RequestQuotesCommandHandler(
                 .ToListAsync(cancellationToken))
             .ToDictionary(p => (p.ProcessId, p.FactoryId));
 
-        var usedToday = await LoadUsedToday(processIds, now, cancellationToken);
+        var usedToday = await usageReader.GetUsedToday(cancellationToken);
 
         var skuFactories = (await db.SkuFactories
                 .AsNoTracking()
@@ -263,7 +265,7 @@ public class RequestQuotesCommandHandler(
                     process,
                     set.Quantity,
                     processFactories.GetValueOrDefault((process.ProcessId, factoryId)),
-                    usedToday.GetValueOrDefault((process.ProcessId, factoryId)),
+                    usedToday.GetValueOrDefault(new ProcessFactoryKey(process.ProcessId, factoryId)),
                     reasons,
                     signals))
                 .ToList();
@@ -368,7 +370,8 @@ public class RequestQuotesCommandHandler(
             reasons.Add(QuoteReasonCodes.ProcessOffline);
         }
 
-        var remainingPct = RemainingPct(processFactory, usedToday);
+        var remainingPct = ProcessCapacityCalculator.Today(processFactory.MaxPerDay, processFactory.CapacityPct, usedToday)?.RemainingPct
+                           ?? processFactory.CapacityPct;
         signals.Add(remainingPct);
 
         return new QuoteProcessDto(
@@ -388,48 +391,6 @@ public class RequestQuotesCommandHandler(
             StockStatuses.Low => LowStockSignalPct,
             _ => 0
         };
-    }
-
-    private static int RemainingPct(ProcessFactory processFactory, int usedToday)
-    {
-        if (processFactory.MaxPerDay is not > 0)
-        {
-            return processFactory.CapacityPct;
-        }
-
-        var maxPerDay = processFactory.MaxPerDay.Value;
-        var remaining = (maxPerDay * processFactory.CapacityPct / ProcessFactory.FullCapacityPct - usedToday) / maxPerDay * 100;
-
-        return (int)Math.Clamp(Math.Floor(remaining), 0, 100);
-    }
-
-    private async Task<Dictionary<(string ProcessId, string FactoryId), int>> LoadUsedToday(
-        List<string> processIds,
-        DateTime now,
-        CancellationToken cancellationToken)
-    {
-        if (processIds.Count == 0)
-        {
-            return new Dictionary<(string ProcessId, string FactoryId), int>();
-        }
-
-        var dayStart = now.Date;
-        var dayEnd = dayStart.AddDays(1);
-
-        var used = await db.Quotes
-            .AsNoTracking()
-            .Where(q => q.Status == QuoteStatus.Produced && q.ProducedAt >= dayStart && q.ProducedAt < dayEnd)
-            .Join(db.QuoteSets, q => q.QuoteSetId, s => s.Id, (q, s) => new { q.FactoryId, s.SkuUuid })
-            .Join(
-                db.SkuProcesses.Where(p => processIds.Contains(p.ProcessId)),
-                produced => produced.SkuUuid,
-                p => p.SkuUuid,
-                (produced, p) => new { produced.FactoryId, p.ProcessId })
-            .GroupBy(x => new { x.FactoryId, x.ProcessId })
-            .Select(g => new { g.Key.FactoryId, g.Key.ProcessId, Count = g.Count() })
-            .ToListAsync(cancellationToken);
-
-        return used.ToDictionary(x => (x.ProcessId, x.FactoryId), x => x.Count);
     }
 
     private static Quote NewQuote(

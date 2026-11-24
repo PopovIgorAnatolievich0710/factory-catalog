@@ -55,7 +55,17 @@ internal class ComponentStock
 
     public string Status(string erpId, string factoryId)
     {
-        return StockStatusRule.Resolve(stockRows.GetValueOrDefault((erpId, factoryId)), components[erpId].CriticalStockLevel);
+        if (!stockRows.TryGetValue((erpId, factoryId), out var stockRow))
+        {
+            return StockStatuses.OutOfStock;
+        }
+
+        return stockRow.GetStockStatus(components[erpId].CriticalStockLevel) switch
+        {
+            StockStatus.OutOfStock => StockStatuses.OutOfStock,
+            StockStatus.Low => StockStatuses.Low,
+            _ => StockStatuses.Ok
+        };
     }
 
     public string FindAlternativeInStock(string erpId, string factoryId)

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Tenengroup.FactoryCatalog.Business.Abstractions.Components.Sync;
 using Tenengroup.FactoryCatalog.Business.Abstractions.Shared.History;
 using Tenengroup.FactoryCatalog.Business.Abstractions.Shared.Sync;
+using Tenengroup.FactoryCatalog.Business.Skus.Validation;
 using Tenengroup.FactoryCatalog.DataAccess.Abstractions;
 using Tenengroup.FactoryCatalog.Domains.Components;
 using Tenengroup.FactoryCatalog.Domains.Shared;
@@ -14,6 +15,7 @@ public class SapComponentsSyncService(
     ISapExportReader exportReader,
     ISyncRunTracker syncRunTracker,
     IHistoryWriter historyWriter,
+    SkuMappingValidator skuMappingValidator,
     TimeProvider timeProvider,
     ILogger<SapComponentsSyncService> logger) : ISapComponentsSyncService
 {
@@ -46,6 +48,7 @@ public class SapComponentsSyncService(
             var failedStockRows = await SyncStock(export, components, updatedErpIds, now, cancellationToken);
 
             await db.SaveChangesAsync(cancellationToken);
+            await skuMappingValidator.ValidateAll(HistorySource.Sync, ChangedBy, cancellationToken);
 
             updatedErpIds.ExceptWith(addedErpIds);
             await syncRunTracker.Complete(

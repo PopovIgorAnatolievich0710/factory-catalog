@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Moq;
 using NUnit.Framework;
 using Tenengroup.FactoryCatalog.Business.Abstractions.Quotes;
+using Tenengroup.FactoryCatalog.Business.Processes;
 using Tenengroup.FactoryCatalog.Business.Quotes;
 using Tenengroup.FactoryCatalog.Domains.Components;
 using Tenengroup.FactoryCatalog.Domains.Processes;
@@ -35,6 +36,7 @@ public class RequestQuotesCommandHandlerTests
                 catalog.Db.Object,
                 catalog.CurrentUser.Object,
                 catalog.Time,
+                new ProcessUsageReader(catalog.Db.Object, catalog.Time),
                 new QuotesOptions(QuotesOptions.DefaultValidityMinutes, QuotesOptions.DefaultCurrency))
             .Handle(command, CancellationToken.None);
     }

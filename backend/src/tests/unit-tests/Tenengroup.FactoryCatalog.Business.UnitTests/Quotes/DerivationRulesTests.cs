@@ -1,46 +1,11 @@
 using NUnit.Framework;
-using Tenengroup.FactoryCatalog.Business.Abstractions.Quotes;
 using Tenengroup.FactoryCatalog.Business.Quotes;
-using Tenengroup.FactoryCatalog.Domains.Components;
 
 namespace Tenengroup.FactoryCatalog.Business.UnitTests.Quotes;
 
 [TestFixture]
 public class DerivationRulesTests
 {
-    [TestCase(10, 0, false, null, null, StockStatuses.Ok)]
-    [TestCase(10, 0, false, null, 10, StockStatuses.Ok)]
-    [TestCase(6, 3, false, null, 10, StockStatuses.Low)]
-    [TestCase(6, 3, false, 5, 10, StockStatuses.Ok)]
-    [TestCase(6, 3, false, 20, 1, StockStatuses.Low)]
-    [TestCase(0, 0, false, null, null, StockStatuses.OutOfStock)]
-    [TestCase(-2, 1, false, null, null, StockStatuses.OutOfStock)]
-    [TestCase(100, 100, true, null, null, StockStatuses.OutOfStock)]
-    public void StockStatus_FollowsTheSharedRule(
-        decimal warehouse,
-        decimal productionFloor,
-        bool manualOos,
-        int? criticalOverride,
-        int? globalCritical,
-        string expected)
-    {
-        var stock = new ComponentFactory
-        {
-            WarehouseStock = warehouse,
-            ProductionFloorStock = productionFloor,
-            ManualOosActive = manualOos,
-            CriticalStockLevelOverride = criticalOverride
-        };
-
-        Assert.That(StockStatusRule.Resolve(stock, globalCritical), Is.EqualTo(expected));
-    }
-
-    [Test]
-    public void StockStatus_WithoutStockRow_IsOutOfStock()
-    {
-        Assert.That(StockStatusRule.Resolve(null, 5), Is.EqualTo(StockStatuses.OutOfStock));
-    }
-
     [Test]
     public void Shares_AreScaledToOneHundredInProportion()
     {

@@ -5,9 +5,11 @@ using Tenengroup.FactoryCatalog.Business.Abstractions.Components.Sync;
 using Tenengroup.FactoryCatalog.Business.Abstractions.Shared.History;
 using Tenengroup.FactoryCatalog.Business.Abstractions.Shared.Sync;
 using Tenengroup.FactoryCatalog.Business.Components.Sync;
+using Tenengroup.FactoryCatalog.Business.Skus.Validation;
 using Tenengroup.FactoryCatalog.DataAccess.Abstractions;
 using Tenengroup.FactoryCatalog.Domains.Components;
 using Tenengroup.FactoryCatalog.Domains.Shared;
+using Tenengroup.FactoryCatalog.Domains.Skus;
 using Tenengroup.Infrastructure.Common.Exceptions;
 
 namespace Tenengroup.FactoryCatalog.Business.UnitTests.Components;
@@ -34,6 +36,8 @@ public class SapComponentsSyncServiceTests
         history = new Mock<IHistoryWriter>();
         tracker.Setup(t => t.Start(SyncTypes.SapComponents, It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(RunId);
         db.SetupSet(x => x.Factories, new Factory { Id = "110" }, new Factory { Id = "125" });
+        db.SetupSet(x => x.Skus);
+        db.SetupSet(x => x.Processes);
     }
 
     private void Seed(Component[] existingComponents, params ComponentFactory[] existingStock)
@@ -57,7 +61,7 @@ public class SapComponentsSyncServiceTests
     private Task Run()
     {
         return new SapComponentsSyncService(db.Object, exportReader.Object, tracker.Object, history.Object,
-            TestDb.FixedTime(Now), NullLogger<SapComponentsSyncService>.Instance).Run("schedule");
+            new SkuMappingValidator(db.Object, history.Object), TestDb.FixedTime(Now), NullLogger<SapComponentsSyncService>.Instance).Run("schedule");
     }
 
     private void VerifyHistory(string erpId, string field, object oldValue, object newValue, Times times)
@@ -98,6 +102,31 @@ public class SapComponentsSyncServiceTests
         VerifyHistory("D", "status", It.IsAny<object>(), It.IsAny<object>(), Times.Never());
         tracker.Verify(t => t.Complete(RunId, 1, 2, 0, It.IsAny<CancellationToken>()), Times.Once);
         db.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task Run_RevalidatesSkus_SoASkuUsingANewlyInactiveComponentIsFlagged()
+    {
+        Seed([
+            new Component { ErpId = "A", Name = "Alpha", Family = "Board", Status = ComponentStatus.Active },
+            new Component { ErpId = "B", Name = "Beta", Family = "Board", Status = ComponentStatus.Active }
+        ]);
+        var sku = new Sku
+        {
+            SkuUuid = Guid.NewGuid(),
+            ProductType = SkuProductType.Manufactured,
+            Components = [new SkuComponent { ComponentErpId = "B", Quantity = 1 }]
+        };
+        db.SetupSet(x => x.Skus, sku);
+        Export([Row("A", "Alpha")]);
+
+        await Run();
+
+        Assert.That(sku.ValidationStatus, Is.EqualTo(SkuValidationStatus.Invalid));
+        Assert.That(sku.ValidationIssues, Is.EqualTo(new[] { "Component B is not active in SAP" }));
+        history.Verify(h => h.Record(HistoryEntityTypes.Sku, sku.SkuUuid.ToString(), SkuMappingValidator.StatusField,
+            SkuValidationStatus.Valid, SkuValidationStatus.Invalid, HistorySource.Sync, null, SapComponentsSyncService.ChangedBy));
+        tracker.Verify(t => t.Complete(RunId, 0, 1, 0, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test]

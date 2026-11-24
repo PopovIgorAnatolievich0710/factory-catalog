@@ -175,7 +175,9 @@ ambiguous).
      `PROCESS_NOT_AVAILABLE`. `capacity_pct = 0` → `PROCESS_OFFLINE`. Remaining capacity today (P-14):
      `remainingPct = floor((maxPerDay × capacityPct / 100 − usedToday) / maxPerDay × 100)` clamped to 0–100, where
      `usedToday` = quotes with status `Produced` and `produced_at` in the current UTC day in that factory whose
-     SKU maps the process; without `max_per_day` it equals `capacityPct`. Capacity used up (0 % left) does **not**
+     SKU maps the process; without `max_per_day` it equals `capacityPct`. `usedToday` comes from the Processes
+     module's `IProcessUsageReader` and the formula from `ProcessCapacityCalculator.Today`; the quote handler adds
+     the `capacityPct` fallback when the calculator returns no value. Capacity used up (0 % left) does **not**
      make the factory non-producible — it only drives the signal.
    - `producible` = no reasons.
 7. **Cost** (producible quotes): `material = Σ unitCost × quantity`; `labor = Σ` process line costs except
@@ -193,7 +195,10 @@ ambiguous).
 
 - Stock status: `total = warehouse + production floor`; `outOfStock` when the manual OOS flag is active or
   `total <= 0` (a missing `component_factory` row counts as 0); else `low` when
-  `total < (critical_stock_level_override ?? critical_stock_level)`; else `ok`. `StockStatusRule` in `Business/Quotes`.
+  `total < (critical_stock_level_override ?? critical_stock_level)`; else `ok` (no critical level set → never
+  `low`). The rule is `ComponentFactory.GetStockStatus` from the Components module; `ComponentStock.Status` in
+  `Business/Quotes` maps it to the quote strings and treats a missing `component_factory` row as `outOfStock`
+  (also used by the legacy-balancer eligibility check).
 - Share redistribution: `ShareRedistribution` in `Business/Quotes`.
 
 ### Reason codes
@@ -495,7 +500,7 @@ Configuration (optional, read in `QuotesModule`): `Quotes:ValidityMinutes` (defa
 | Layer | Files |
 |---|---|
 | Contracts | `Business.Abstractions/Quotes/*`, `Business.Abstractions/LegacyBalancer/*` |
-| Quote engine | `Business/Quotes/RequestQuotesCommandHandler.cs`, `ComponentStock.cs`, `StockStatusRule.cs`, `ShareRedistribution.cs`, `SkuLookup.cs`, `QuoteMapper.cs` |
+| Quote engine | `Business/Quotes/RequestQuotesCommandHandler.cs`, `ComponentStock.cs`, `ShareRedistribution.cs`, `SkuLookup.cs`, `QuoteMapper.cs` |
 | Lifecycle and reads | `Business/Quotes/{SelectQuote,MarkQuoteProduced,MarkQuoteTransferred}CommandHandler.cs`, `{GetQuoteSet,SearchQuotes,GetDropshipperCost}QueryHandler.cs` |
 | Legacy balancer | `Business/LegacyBalancer/*` |
 | HTTP | `Api/Controllers/Quotes/QuotesController.cs`, `Api/Controllers/LegacyBalancer/LegacyBalancerController.cs`, `Api/Models/{Quotes,LegacyBalancer}`, `Api/Mappers/Quotes` |
@@ -519,7 +524,7 @@ Configuration (optional, read in `QuotesModule`): `Quotes:ValidityMinutes` (defa
 | C-17 Legacy OOS check | done (catalog side) | endpoint only; the call from `supplier_api` is outside this repository |
 | C-18 Why a factory was skipped | partial | log, search and Excel export exist; no UI page was requested for this module |
 | P-10 / S-18 Process at 0 % blocks the SKU | done (catalog side) | part of the eligibility endpoint; partial capacity ignored |
-| P-14 Remaining capacity today | done (read side) | used for `remainingPct` and the signal; the same derivation exists in the Processes module |
+| P-14 Remaining capacity today | done (read side) | used for `remainingPct` and the signal; uses the Processes module's `IProcessUsageReader` and `ProcessCapacityCalculator` |
 | S-11 Invalid SKUs excluded from quotes | done | `SKU_INVALID` |
 | S-15 Share redistribution | done | applied per quote set, stored shares untouched |
 | S-16 Country SKU lists | partial | generated on request in the TG Supplier field names; how TG Supplier pulls or stores them and the factory ↔ country-balance mapping are open (Q-17) |

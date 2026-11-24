@@ -236,9 +236,10 @@ None. The module uses the foundation entities and `FactoryCatalogDbContext` conf
 
 ## Requests to orchestrator
 
-- None required to build. Optional: when the SAP components sync deactivates a component or a process is created /
-  renamed, SKU validation is refreshed only by the next master catalog run or process-mapping import (see M3-9);
-  calling `SkuMappingValidator.ValidateAll` at the end of the SAP sync would need a change in the Components module.
+- None. The SAP components sync now calls `SkuMappingValidator.ValidateAll` at the end of a successful run (see
+  `1-components.md`), so a component deactivated by SAP flags its SKUs immediately. When a process is created /
+  renamed, SKU validation is still refreshed only by the next master catalog run, SAP sync or process-mapping
+  import (see M3-9).
 
 ## Story coverage
 
