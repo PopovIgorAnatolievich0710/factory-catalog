@@ -1,0 +1,188 @@
+{{- range $deployName, $deployment := $.Values.deployments -}}{{- if $deployment.enabled -}}
+{{- $fullDeployName := printf "%s-%s" $.Release.Name $deployName | trunc 63 | trimSuffix "-" }}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ $.Chart.Name }}
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    deployment: {{ $fullDeployName }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
+    build: {{ $.Values.global.build }}
+  name: {{ $fullDeployName }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ $.Chart.Name }}
+      release: {{ $.Release.Name }}
+  replicas: {{ $deployment.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      annotations:
+        {{- range $containerName, $container := $deployment.containers -}}{{- if $container.enabled }}
+        checksum-{{ $containerName }}/secret: {{ printf "%s" $container.secret | sha256sum }}
+        checksum-{{ $containerName }}/cm: {{ printf "%s" $container.config | sha256sum }}
+        {{- end }}{{- end }}
+      labels:
+        app: {{ $.Chart.Name }}
+        deployment: {{ $fullDeployName }}
+        heritage: {{ $.Release.Service }}
+        release: {{ $.Release.Name }}
+        build: {{ $.Values.global.build }}
+    spec:
+    {{- if $deployment.priorityClassName }}
+      priorityClassName: {{ $deployment.priorityClassName }}
+    {{- end }}
+    {{- if $deployment.affinity }}
+      affinity:
+{{ toYaml $deployment.affinity | indent 8 }}
+    {{- end }}
+    {{- if $deployment.topologySpreadConstraints }}
+      topologySpreadConstraints:
+{{ toYaml $deployment.topologySpreadConstraints | indent 8 }}
+    {{- end }}
+      serviceAccountName: {{ if $.Values.rbac.create }}{{ $.Release.Name }}{{ else }}"{{ $deployment.serviceAccountName }}"{{ end }}
+      {{- with $deployment.securityContext }}
+      securityContext:
+        fsGroup: {{ .fsGroup }}
+      {{- end }}
+      {{- if $deployment.initContainers }}
+      initContainers:
+        {{- range $containerName, $container := $deployment.initContainers -}}{{- if $container.enabled }}
+        {{- $fullContainerName := printf "%s-%s" $fullDeployName $containerName | trunc 63 | trimSuffix "-" }}
+        - name: {{ $fullContainerName }}
+          image: "{{ $container.image.repository }}:{{ $container.image.tag }}"
+          imagePullPolicy: "{{ $container.image.pullPolicy }}"
+          {{- if $container.command }}
+          command:
+            {{- range $arg := $container.command }}
+            - {{ $arg | quote }}
+              {{- end }}
+              {{- end }}
+          {{- if $container.extraArgs }}
+          args:
+            {{- range $argsIndex, $value := $container.extraArgs }}
+            - {{ $value | quote }}
+              {{- end }}
+          {{- end }}
+          resources:
+{{ toYaml $container.resources | indent 12 }}
+          env:
+{{- if $container.env_vars_from_k8s_secrets }}
+{{ $container.env_vars_from_k8s_secrets | toYaml | indent 12 }}
+{{- end }}
+            {{- if $container.env_vars }}
+            {{- with $container.env_vars }}
+            {{- range $key, $value := . }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+          {{- end }}
+          {{- end }}
+        {{- end }}
+        {{- end -}}{{- end -}}{{/* container loop */}}
+      {{- end }}
+      containers:
+        {{- range $containerName, $container := $deployment.containers -}}{{- if $container.enabled }}
+        {{- $fullContainerName := printf "%s-%s" $fullDeployName $containerName | trunc 63 | trimSuffix "-" }}
+        - name: {{ $fullContainerName }}
+          image: "{{ $container.image.repository }}:{{ $container.image.tag }}"
+          imagePullPolicy: "{{ $container.image.pullPolicy }}"
+          {{- if $container.command }}
+          command:
+          {{- range $arg := $container.command }}
+            - {{ $arg | quote }}
+          {{- end }}
+          {{- end }}
+          {{- if $container.extraArgs }}
+          args:
+          {{- range $argsIndex, $value := $container.extraArgs }}
+            - {{ $value | quote }}
+          {{- end }}
+          {{- end }}
+          env:
+{{- if $container.env_vars_from_k8s_secrets }}
+{{ $container.env_vars_from_k8s_secrets | toYaml | indent 12 }}
+{{- end }}
+          {{- if $container.env_vars }}
+          {{- with $container.env_vars }}
+          {{- range $key, $value := . }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+          {{- end }}
+          {{- end }}
+          {{- end }}
+          ports:
+{{ toYaml $container.ports | indent 12 }}
+          {{- if $container.livenessProbe }}
+          livenessProbe:
+{{ toYaml $container.livenessProbe | indent 12 }}
+          {{- end }}
+          {{- if $container.readinessProbe }}
+          readinessProbe:
+{{ toYaml $container.readinessProbe | indent 12 }}
+          {{- end }}
+          resources:
+{{ toYaml $container.resources | indent 12 }}
+          volumeMounts:
+          {{- if $container.config }}
+            - name: {{ $fullContainerName }}-config
+              mountPath: /etc/config
+          {{- end }}
+          {{- if $container.secret }}
+            - name: {{ $fullContainerName }}-secret
+              mountPath: /etc/secret
+          {{- end }}
+          {{- range $pvName, $pvm := $container.persistentVolumeMounts }}
+            - name: {{ printf "%s-%s" $fullDeployName $pvName | trunc 63 | trimSuffix "-" }}
+{{ toYaml $pvm | indent 14 }}
+          {{- end }}
+          {{- range $volumeMountName, $volumeMount := $container.volumeMounts }}
+            - name: {{ $volumeMountName }}
+{{ toYaml $volumeMount | indent 14 }}
+          {{- end }}
+        {{- end -}}{{- end -}}{{/* container loop */}}
+    {{- if $deployment.nodeSelector }}
+      nodeSelector:
+{{ toYaml $deployment.nodeSelector | indent 8 }}
+    {{- end }}
+    {{- if $deployment.tolerations }}
+      tolerations:
+{{ toYaml $deployment.tolerations | indent 8 }}
+    {{- end }}
+    {{- if $deployment.hostAliases }}
+      hostAliases:
+{{ toYaml $deployment.hostAliases | indent 8 }}
+    {{- end }}
+      terminationGracePeriodSeconds: {{ $deployment.terminationGracePeriodSeconds }}
+      volumes:
+        {{- range $containerName, $container := $deployment.containers -}}{{- if $container.enabled -}}
+        {{- $fullContainerName := printf "%s-%s" $fullDeployName $containerName | trunc 63 | trimSuffix "-" }}
+        {{- if $container.config }}
+        - name: {{ $fullContainerName }}-config
+          configMap:
+            name: {{ $fullContainerName }}
+        {{- end }}
+        {{- if $container.secret }}
+        - name: {{ $fullContainerName }}-secret
+          secret:
+            secretName: {{ $fullContainerName }}
+        {{- end }}
+        {{- end }}{{- end }}
+        {{- range $pvName, $pv := $deployment.persistentVolumes }}
+        - name: {{ printf "%s-%s" $fullDeployName $pvName | trunc 63 | trimSuffix "-" }}
+          persistentVolumeClaim:
+            claimName: {{ if .existingClaim }}{{ .existingClaim }}{{- else }}{{ printf "%s-%s" $fullDeployName $pvName | trunc 63 | trimSuffix "-" }}{{- end }}
+        {{- end }}
+        {{- range $volumeName, $volume := $deployment.volumes }}
+        - name: {{ $volumeName }}
+{{ toYaml $volume | indent 10 }}
+        {{- end }}
+---
+{{- end -}}{{- end -}}{{/* deployment loop */}}

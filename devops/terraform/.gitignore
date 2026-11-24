@@ -1,0 +1,11 @@
+terraform.tfstate
+terraform.tfstate.bak
+terraform.tfvars
+*.plan
+.idea/
+*.pem
+*.backup
+.terraform/
+.gcp*
+state.tf
+

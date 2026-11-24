@@ -1,0 +1,4 @@
+Chart.yaml
+Chart.lock
+charts/
+configs/db_init_script.sql

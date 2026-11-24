@@ -1,0 +1,120 @@
+{{- range $deployName, $deployment := $.Values.deployments -}}{{- if $deployment.enabled -}}
+{{- $fullDeployName := printf "%s-%s" $.Release.Name $deployName | trunc 63 | trimSuffix "-" }}
+
+{{- range $containerName, $container := $deployment.containers -}}{{- if $container.enabled -}}{{- if $container.service -}}
+{{- $fullContainerName := printf "%s-%s" $fullDeployName $containerName | trunc 63 | trimSuffix "-" }}
+
+apiVersion: v1
+kind: Service
+metadata:
+{{- if $container.service.annotations }}
+  annotations:
+{{ toYaml $container.service.annotations | indent 4 }}
+{{- end }}
+  labels:
+    app: {{ $.Chart.Name }}
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    deployment: {{ $fullDeployName }}
+    container: {{ $fullContainerName }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
+    build: {{ $.Values.global.build }}
+{{- if $container.service.labels }}
+{{ toYaml $container.service.labels | indent 4 }}
+{{- end }}
+  name: {{ $fullContainerName }}
+spec:
+{{- if $container.service.clusterIP }}
+  clusterIP: {{ $container.service.clusterIP }}
+{{- end }}
+{{- if $container.service.externalIPs }}
+  externalIPs:
+{{ toYaml $container.service.externalIPs | indent 4 }}
+{{- end }}
+{{- if $container.service.loadBalancerIP }}
+  loadBalancerIP: {{ $container.service.loadBalancerIP }}
+{{- end }}
+{{- if $container.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+  {{- range $cidr := $container.service.loadBalancerSourceRanges }}
+    - {{ $cidr }}
+  {{- end }}
+{{- end }}
+  ports:
+  {{- range $portName, $ports := $container.service.ports }}
+    - name: {{ $portName }}
+      port: {{ $ports.servicePort }}
+      targetPort: {{ $ports.targetPort }}
+      protocol: {{ $ports.protocol }}
+    {{- if $ports.nodePort }}
+      nodePort: {{ $ports.nodePort }}
+    {{- end }}
+  {{- end }}
+  selector:
+    app: {{ $.Chart.Name }}
+    deployment: {{ $fullDeployName }}
+    release: {{ $.Release.Name }}
+  type: "{{ $container.service.type }}"
+---
+{{- end -}}{{- end -}}{{- end -}}{{/* container loop */}}
+{{- end -}}{{- end -}}{{/* deployment loop */}}
+
+{{- range $stateFullName, $stateFullSet := $.Values.statefulsets -}}{{- if $stateFullSet.enabled -}}
+{{- $fullStateFullName := printf "%s-%s" $.Release.Name $stateFullName | trunc 63 | trimSuffix "-" }}
+
+{{- range $containerName, $container := $stateFullSet.containers -}}{{- if $container.enabled -}}{{- if $container.service -}}
+{{- $fullContainerName := printf "%s-%s" $fullStateFullName $containerName | trunc 63 | trimSuffix "-" }}
+
+apiVersion: v1
+kind: Service
+metadata:
+{{- if $container.service.annotations }}
+  annotations:
+{{ toYaml $container.service.annotations | indent 4 }}
+{{- end }}
+  labels:
+    app: {{ $.Chart.Name }}
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    statefulset: {{ $fullStateFullName }}
+    container: {{ $fullContainerName }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
+{{- if $container.service.labels }}
+{{ toYaml $container.service.labels | indent 4 }}
+{{- end }}
+  name: {{ $fullContainerName }}
+spec:
+{{- if $container.service.clusterIP }}
+  clusterIP: {{ $container.service.clusterIP }}
+{{- end }}
+{{- if $container.service.externalIPs }}
+  externalIPs:
+{{ toYaml $container.service.externalIPs | indent 4 }}
+{{- end }}
+{{- if $container.service.loadBalancerIP }}
+  loadBalancerIP: {{ $container.service.loadBalancerIP }}
+{{- end }}
+{{- if $container.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+  {{- range $cidr := $container.service.loadBalancerSourceRanges }}
+    - {{ $cidr }}
+  {{- end }}
+{{- end }}
+  ports:
+  {{- range $portName, $ports := $container.service.ports }}
+    - name: {{ $portName }}
+      port: {{ $ports.servicePort }}
+      targetPort: {{ $ports.targetPort }}
+      protocol: {{ $ports.protocol }}
+    {{- if $ports.nodePort }}
+      nodePort: {{ $ports.nodePort }}
+    {{- end }}
+  {{- end }}
+  selector:
+    app: {{ $.Chart.Name }}
+    statefulset: {{ $fullStateFullName }}
+    release: {{ $.Release.Name }}
+  type: "{{ $container.service.type }}"
+---
+{{- end -}}{{- end -}}{{- end -}}{{/* container loop */}}
+{{- end -}}{{- end -}}{{/* statefulset loop */}}

@@ -1,0 +1,167 @@
+name: factory-catalog
+
+x-api-environment: &api-environment
+  ASPNETCORE_ENVIRONMENT: Development
+  DATABASE_HOST: postgres
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: factory_catalog
+  DATABASE_USERNAME: postgres
+  DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+  API_SERVICE_USERNAME: ${API_SERVICE_USERNAME:-admin}
+  API_SERVICE_USER_PASSWORD: ${API_SERVICE_USER_PASSWORD:-password}
+  GROUP_PERMISSIONS_URL: ${GROUP_PERMISSIONS_URL:-}
+  CORS_ALLOWED_HOSTS: http://localhost:8080,http://127.0.0.1:8080
+  AzureAd__Instance: https://login.microsoftonline.com/
+  AzureAd__TenantId: ${AZURE_TENANT_ID:-26c34b0b-8ce7-4c06-97fb-3d5915066e98}
+  AzureAd__ClientId: ${AZURE_API_CLIENT_ID:-17fd6764-3d5e-40d7-9773-bd106a0dbfab}
+  Aws__DefaultRegion: eu-west-1
+  Aws__AccessKey: test
+  Aws__SecretKey: test
+  Aws__ServiceUrl: http://localstack:4566
+  Aws__SqsServiceUrl: http://localstack:4566
+  Aws__SnsServiceUrl: http://localstack:4566
+  CORECLR_ENABLE_PROFILING: "0"
+  LD_PRELOAD: ""
+  DD_TRACE_ENABLED: "false"
+  DD_LOGS_ENABLED: "false"
+  DD_PROFILING_ENABLED: "false"
+
+x-catalog-environment: &catalog-environment
+  <<: *api-environment
+  SapExport__Bucket: factory-catalog-dev-local
+  SapExport__Prefix: sap-export
+  MasterCatalog__BaseUrl: ${MASTER_CATALOG_BASE_URL:-http://host.docker.internal:5020}
+  MasterCatalog__Username: ${MASTER_CATALOG_USERNAME:-}
+  MasterCatalog__Password: ${MASTER_CATALOG_PASSWORD:-}
+
+x-balancer-environment: &balancer-environment
+  <<: *api-environment
+  FactoryCatalog__BaseUrl: http://catalog-api:5010
+  FactoryCatalog__Username: ${API_SERVICE_USERNAME:-admin}
+  FactoryCatalog__Password: ${API_SERVICE_USER_PASSWORD:-password}
+  ShipmentService__BaseUrl: ${SHIPMENT_SERVICE_BASE_URL:-http://host.docker.internal:5005}
+  ShipmentService__Username: ${SHIPMENT_SERVICE_USERNAME:-}
+  ShipmentService__Password: ${SHIPMENT_SERVICE_PASSWORD:-}
+  OrderItems__QueueUrl: http://localstack:4566/000000000000/factory-catalog-local-ocs-order-items
+  SupplierEvents__QueueUrl: http://localstack:4566/000000000000/factory-catalog-local-supplier-events
+  BalancerEvents__AllocationDecidedTopicArn: arn:aws:sns:eu-west-1:000000000000:factory-catalog-local-balancer-allocation-decided
+  BalancerEvents__QuoteProducedTopicArn: arn:aws:sns:eu-west-1:000000000000:factory-catalog-local-balancer-quote-produced
+
+services:
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: factory_catalog
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./devops/docker/postgres/01-schemas.sql:/docker-entrypoint-initdb.d/01-schemas.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d factory_catalog"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  localstack:
+    image: localstack/localstack:3.8
+    restart: unless-stopped
+    environment:
+      SERVICES: s3,sqs,sns
+      AWS_DEFAULT_REGION: eu-west-1
+      SAP_EXPORT_BUCKET: factory-catalog-dev-local
+      OCS_ORDER_ITEMS_QUEUE: factory-catalog-local-ocs-order-items
+      SUPPLIER_EVENTS_QUEUE: factory-catalog-local-supplier-events
+      ALLOCATION_DECIDED_TOPIC: factory-catalog-local-balancer-allocation-decided
+      QUOTE_PRODUCED_TOPIC: factory-catalog-local-balancer-quote-produced
+    ports:
+      - "4566:4566"
+    volumes:
+      - ./devops/docker/localstack/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:4566/_localstack/init/ready | grep -q '\"completed\": true'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  catalog-migrate:
+    profiles: ["apps"]
+    image: factory-catalog-main:local
+    build:
+      context: ./backend/src
+      dockerfile: app/Tenengroup.FactoryCatalog.Api/Dockerfile
+    command: ["dotnet", "Tenengroup.FactoryCatalog.Api.dll", "migrate"]
+    environment: *catalog-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  catalog-api:
+    profiles: ["apps"]
+    image: factory-catalog-main:local
+    restart: unless-stopped
+    environment: *catalog-environment
+    ports:
+      - "5010:5010"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      catalog-migrate:
+        condition: service_completed_successfully
+      localstack:
+        condition: service_healthy
+
+  balancer-migrate:
+    profiles: ["apps"]
+    image: factory-catalog-balancer:local
+    build:
+      context: ./backend/src
+      dockerfile: ../../devops/docker/balancer-api.Dockerfile
+    command: ["dotnet", "Tenengroup.Balancer.Api.dll", "migrate"]
+    environment: *balancer-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  balancer-api:
+    profiles: ["apps"]
+    image: factory-catalog-balancer:local
+    restart: unless-stopped
+    environment: *balancer-environment
+    ports:
+      - "5011:5011"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      balancer-migrate:
+        condition: service_completed_successfully
+      catalog-api:
+        condition: service_started
+      localstack:
+        condition: service_healthy
+
+  ui:
+    profiles: ["apps"]
+    image: factory-catalog-ui:local
+    build:
+      context: ./frontend/FactoryCatalogUI
+    restart: unless-stopped
+    environment:
+      FACTORY_CATALOG_BASE_FRONTEND_URL_ENV_VAR: http://localhost:8080
+      FACTORY_CATALOG_BASE_API_URL_ENV_VAR: http://localhost:5010/
+      BALANCER_BASE_API_URL_ENV_VAR: http://localhost:5011/
+      AZURE_CLIENT_ID_ENV_VAR: ${AZURE_UI_CLIENT_ID:-c4e70d41-321e-4278-9271-73f277fd845b}
+      AZURE_BACKEND_SCOPE_ENV_VAR: ${AZURE_BACKEND_SCOPE:-api://17fd6764-3d5e-40d7-9773-bd106a0dbfab/RnD.Access}
+      AZURE_TENANT_ID_ENV_VAR: ${AZURE_TENANT_ID:-26c34b0b-8ce7-4c06-97fb-3d5915066e98}
+      SERVICES_CONFIG_URL_ENV_VAR: https://cdn-mnn.s3.eu-west-1.amazonaws.com/Config/BackOfficeSystemsDev.json
+    ports:
+      - "8080:80"
+    depends_on:
+      - catalog-api
+      - balancer-api
+
+volumes:
+  postgres-data:
