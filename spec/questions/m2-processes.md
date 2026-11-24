@@ -5,11 +5,11 @@ Each row was implemented with the recommended variant.
 | # | Question | Implemented (recommended) | Alternatives |
 |---|---|---|---|
 | M2-1 | P-11: how does packing cost vary by item size or complexity? | Flat cost per factory: `PACKING` uses the ordinary labor-cost fields of `process_factory` (amount per unit + currency) | size / complexity tiers per factory; a cost per packing type on the SKU |
-| M2-2 | P-14: in which unit is "used today" counted? Max per day is "order items per day" | Order items: sum of `quote_set.quantity` of quotes produced today that need the process | process units (item quantity × `sku_process.quantity`), with max per day in process units |
+| M2-2 | P-14: in which unit is "used today" counted? Max per day is "order items per day" | One per produced quote (= order item), not multiplied by the item quantity — the same definition as the quotes module (`spec/modules/4a-quotes.md`) | multiply by `quote_set.quantity`; process units (× `sku_process.quantity`) |
 | M2-3 | P-14: which quotes count as used? | Only `Produced` with `produced_at` today; `Selected` (balanced, not done) is left to the daily plan (B-22), as the story says | also subtract `Selected` quotes so that remaining capacity reflects work already routed |
 | M2-4 | P-14: what is "today"? | The current UTC day | the factory's local day (needs a time zone per factory) |
-| M2-5 | P-14: where do the processes of a produced item come from? | `quote.processes[].processId` (shape of the Balancer requirement page); when a quote stores none, the SKU's current `sku_process` mapping | only the stored quote; the reported `production_log` |
-| M2-6 | P-14: remaining % when used exceeds available | Clamped to 0; `used` is reported as is | negative remaining; cap `used` at `available` (mockup) |
+| M2-5 | P-14: where do the processes of a produced item come from? | The current `sku_process` mapping of the quoted SKU, as in the quotes module | the process list stored on the quote; the reported `production_log` |
+| M2-6 | P-14: rounding and bounds of remaining % | Floor, clamped to 0–100 (as the quotes module); `used` is reported as is | round half up; cap `used` at `available` (mockup) |
 | M2-7 | P-14: no max per day set | `today` is not shown ("Maximum daily output is not set") | treat as unlimited; require max per day before "Runs here" |
 | M2-8 | P-09: history has no reason column | The capacity entry's new value carries it (`80% (reason: …)`); reason and recovery changes are also logged as their own fields | add a `note` column to `history_entry` |
 | M2-9 | P-07: reason / recovery when capacity returns to 100% | Cleared | kept as the last note |

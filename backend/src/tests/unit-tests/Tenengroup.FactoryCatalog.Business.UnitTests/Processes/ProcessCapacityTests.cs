@@ -233,42 +233,49 @@ public class ProcessCapacityTests
     }
 
     [Test]
-    public async Task UsedToday_CountsItemsProducedTodayPerProcessAndFactory()
+    public async Task UsedToday_CountsQuotesProducedTodayPerProcessAndFactory()
     {
-        var sku = Guid.NewGuid();
+        var ring = Guid.NewGuid();
+        var chain = Guid.NewGuid();
         db.SetupSet(x => x.QuoteSets,
-            new QuoteSet { Id = 1, SkuUuid = sku, Quantity = 3 },
-            new QuoteSet { Id = 2, SkuUuid = sku, Quantity = 2 },
-            new QuoteSet { Id = 3, SkuUuid = sku, Quantity = 7 });
+            new QuoteSet { Id = 1, SkuUuid = ring, Quantity = 3 },
+            new QuoteSet { Id = 2, SkuUuid = chain, Quantity = 2 },
+            new QuoteSet { Id = 3, SkuUuid = ring, Quantity = 7 });
         db.SetupSet(x => x.Quotes,
-            Quote(1, "110", QuoteStatus.Produced, Now.AddHours(-2), """[{"processId":"ENGRAVING","quantity":2},{"processId":"PACKING","quantity":1}]"""),
-            Quote(2, "110", QuoteStatus.Produced, Now.AddHours(-1), "[]"),
-            Quote(2, "125", QuoteStatus.Quoted, null, """[{"processId":"ENGRAVING"}]"""),
-            Quote(3, "110", QuoteStatus.Produced, Now.AddDays(-1), """[{"processId":"ENGRAVING"}]"""),
-            Quote(3, "125", QuoteStatus.Selected, null, """[{"processId":"ENGRAVING"}]"""));
-        db.SetupSet(x => x.SkuProcesses, new SkuProcess { SkuUuid = sku, ProcessId = "ENGRAVING", Quantity = 2 });
+            Quote(1, "110", QuoteStatus.Produced, Now.AddHours(-2)),
+            Quote(2, "110", QuoteStatus.Produced, Now.AddHours(-1)),
+            Quote(2, "125", QuoteStatus.Quoted, null),
+            Quote(3, "110", QuoteStatus.Produced, Now.AddDays(-1)),
+            Quote(3, "125", QuoteStatus.Selected, null));
+        db.SetupSet(x => x.SkuProcesses,
+            new SkuProcess { SkuUuid = ring, ProcessId = "ENGRAVING", Quantity = 2 },
+            new SkuProcess { SkuUuid = ring, ProcessId = "PACKING", Quantity = 1 },
+            new SkuProcess { SkuUuid = chain, ProcessId = "PACKING", Quantity = 1 });
 
         var used = await new ProcessUsageReader(db.Object, TestDb.FixedTime(Now)).GetUsedToday(CancellationToken.None);
 
         Assert.That(used, Has.Count.EqualTo(2));
-        Assert.That(used[new ProcessFactoryKey("ENGRAVING", "110")], Is.EqualTo(5));
-        Assert.That(used[new ProcessFactoryKey("PACKING", "110")], Is.EqualTo(3));
+        Assert.That(used[new ProcessFactoryKey("ENGRAVING", "110")], Is.EqualTo(1));
+        Assert.That(used[new ProcessFactoryKey("PACKING", "110")], Is.EqualTo(2));
     }
 
     [Test]
     public async Task FactoryView_ShowsUsedAndRemainingToday()
     {
+        var sku = Guid.NewGuid();
         row.CapacityPct = 50;
-        db.SetupSet(x => x.QuoteSets, new QuoteSet { Id = 1, SkuUuid = Guid.NewGuid(), Quantity = 20 });
-        db.SetupSet(x => x.Quotes, Quote(1, "110", QuoteStatus.Produced, Now, """[{"processId":"ENGRAVING"}]"""));
+        row.MaxPerDay = 20;
+        db.SetupSet(x => x.QuoteSets, Enumerable.Range(1, 5).Select(id => new QuoteSet { Id = id, SkuUuid = sku }).ToArray());
+        db.SetupSet(x => x.Quotes, Enumerable.Range(1, 5).Select(id => Quote(id, "110", QuoteStatus.Produced, Now)).ToArray());
+        db.SetupSet(x => x.SkuProcesses, new SkuProcess { SkuUuid = sku, ProcessId = "ENGRAVING", Quantity = 2 });
 
         var rows = await new GetFactoryProcessCapacityQueryHandler(db.Object, CreateReader())
             .Handle(new GetFactoryProcessCapacityQuery("110"), CancellationToken.None);
 
         var today = rows.Single().Cells.Single().Today;
-        Assert.That(today.Available, Is.EqualTo(50));
-        Assert.That(today.Used, Is.EqualTo(20));
-        Assert.That(today.RemainingPct, Is.EqualTo(30));
+        Assert.That(today.Available, Is.EqualTo(10));
+        Assert.That(today.Used, Is.EqualTo(5));
+        Assert.That(today.RemainingPct, Is.EqualTo(25));
     }
 
     private ProcessCapacityReader CreateReader()
@@ -276,8 +283,8 @@ public class ProcessCapacityTests
         return new ProcessCapacityReader(db.Object, new ProcessUsageReader(db.Object, TestDb.FixedTime(Now)));
     }
 
-    private static Quote Quote(long quoteSetId, string factoryId, QuoteStatus status, DateTime? producedAt, string processes)
+    private static Quote Quote(long quoteSetId, string factoryId, QuoteStatus status, DateTime? producedAt)
     {
-        return new Quote { QuoteSetId = quoteSetId, FactoryId = factoryId, Status = status, ProducedAt = producedAt, ProcessesJson = processes };
+        return new Quote { QuoteSetId = quoteSetId, FactoryId = factoryId, Status = status, ProducedAt = producedAt };
     }
 }

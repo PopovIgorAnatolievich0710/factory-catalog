@@ -142,10 +142,10 @@ row of that process. 403 not own factory; 404 unknown process; 422 `capacityPct`
   Source `User`, or `Import` for the Excel import.
 - **Status:** `ProcessCapacityCalculator.Status` — 0 Offline, 10–90 Reduced, 100 Full.
 - **Today (P-13, P-14):** `ProcessCapacityCalculator.Today(maxPerDay, capacityPct, used)`:
-  `available = maxPerDay × capacityPct ÷ 100`, `remainingPct = max(0, round((available − used) ÷ maxPerDay × 100))`.
-  `used` (`IProcessUsageReader.GetUsedToday`) = sum of `quote_set.quantity` of quotes with status `Produced` and
-  `produced_at` within the current UTC day in that factory whose process list contains the process. The process
-  list is `quote.processes[].processId`; when the quote stores none, the SKU's `sku_process` rows are used.
+  `available = maxPerDay × capacityPct ÷ 100`, `remainingPct = floor((available − used) ÷ maxPerDay × 100)` clamped to 0–100.
+  `used` (`IProcessUsageReader.GetUsedToday`) = number of quotes (one per order item) with status `Produced` and
+  `produced_at` within the current UTC day in that factory whose SKU maps the process in `sku_process` — the same
+  definition as the quotes module (`spec/modules/4a-quotes.md`, step 6), which keeps its own copy of the derivation.
 - **Packing (P-11):** the seeded `PACKING` work process; its per-factory cost is the ordinary labor-cost field
   (flat cost per unit and factory).
 - **Unit (P-12):** `process.measured_in` is the unit of `sku_process.quantity` and of the labor cost.

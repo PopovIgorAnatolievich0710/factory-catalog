@@ -28,8 +28,8 @@ public static class ProcessCapacityCalculator
         }
 
         var available = maxPerDay.Value * capacityPct / ProcessFactory.FullCapacityPct;
-        var remainingPct = Math.Max(0, (available - used) / maxPerDay.Value * 100);
+        var remainingPct = Math.Clamp(Math.Floor((available - used) / maxPerDay.Value * 100), 0, 100);
 
-        return new ProcessTodayDto(available, used, (int)Math.Round(remainingPct, MidpointRounding.AwayFromZero));
+        return new ProcessTodayDto(available, used, (int)remainingPct);
     }
 }
