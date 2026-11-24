@@ -29,7 +29,7 @@ const balancerNavigation: ModuleNavItem[] = [
         title: "Daily plan",
         href: BALANCER_DAILY_PLAN_URL,
         icon: EventNoteOutlinedIcon,
-        permission: Permissions.Balancer.View,
+        permission: Permissions.Balancer.ViewDailyPlan,
     },
     {
         group: NavGroups.Balancer,

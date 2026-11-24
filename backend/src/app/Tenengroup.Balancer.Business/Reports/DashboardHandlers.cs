@@ -34,7 +34,9 @@ public class GetRoutingDashboardQueryHandler(IBalancerDbContext db, IBalancerSet
     {
         var filter = request.Filter;
         var settings = await settingsProvider.GetCurrent(cancellationToken);
-        var inPeriod = await DashboardQuery.Routed(db, filter).ToListAsync(cancellationToken);
+        var inPeriod = await DashboardQuery.Routed(db, filter)
+            .Where(a => a.Mode != AllocationMode.Shadow)
+            .ToListAsync(cancellationToken);
 
         var countries = inPeriod.Select(a => a.DestinationCountry).Distinct().OrderBy(c => c).ToList();
         var inCountry = string.IsNullOrEmpty(filter.Country)

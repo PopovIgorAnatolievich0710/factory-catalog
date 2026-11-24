@@ -1,42 +1,27 @@
 import React from "react";
 import { Redirect, Route, Switch } from "react-router-dom";
 import { BALANCER_URL, BALANCER_ROUTING_URL, BALANCER_DECISION_LOG_URL, BALANCER_DAILY_PLAN_URL, BALANCER_TRANSFERS_URL } from "../../constants/urls";
-import { balancerApi } from "../../helpers/api-helper";
 import PrivateRoute from "../components/private-route";
 import { Permissions } from "../../core/auth/permissions";
-import KitDemoListPage from "../components/kit-demo/kit-demo-list-page";
-import KitDemoViewPage from "../components/kit-demo/kit-demo-view-page";
-import KitDemoPlaceholderPage from "../components/kit-demo/kit-demo-placeholder-page";
+import RoutingDashboardPage from "./pages/routing-dashboard-page";
+import DecisionLogPage from "./pages/decision-log-page";
+import DailyPlanPage from "./pages/daily-plan-page";
+import TransfersPage from "./pages/transfers-page";
 
 const BalancerRoutes = () => (
     <Switch>
         <Redirect exact from={BALANCER_URL} to={BALANCER_DECISION_LOG_URL} />
         <PrivateRoute exact path={BALANCER_ROUTING_URL} requiredPermission={Permissions.Balancer.ViewDashboards}>
-            <KitDemoPlaceholderPage title="Routing dashboard" />
+            <RoutingDashboardPage />
         </PrivateRoute>
         <Route exact path={BALANCER_DECISION_LOG_URL}>
-            <KitDemoListPage
-                title="Balancer decision log"
-                listKey="allocations"
-                resource="allocations"
-                baseUrl={BALANCER_DECISION_LOG_URL}
-                api={balancerApi}
-            />
+            <DecisionLogPage />
         </Route>
-        <Route exact path={`${BALANCER_DECISION_LOG_URL}/:id`}>
-            <KitDemoViewPage
-                title="Balancer decision log"
-                resource="allocations"
-                entityType="allocation"
-                baseUrl={BALANCER_DECISION_LOG_URL}
-                api={balancerApi}
-            />
-        </Route>
-        <Route exact path={BALANCER_DAILY_PLAN_URL}>
-            <KitDemoPlaceholderPage title="Daily plan" />
-        </Route>
+        <PrivateRoute exact path={BALANCER_DAILY_PLAN_URL} requiredPermission={Permissions.Balancer.ViewDailyPlan}>
+            <DailyPlanPage />
+        </PrivateRoute>
         <Route exact path={BALANCER_TRANSFERS_URL}>
-            <KitDemoPlaceholderPage title="Transfers" />
+            <TransfersPage />
         </Route>
     </Switch>
 );
