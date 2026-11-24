@@ -1,0 +1,22 @@
+{{/* Need in refactoring */}}
+{{- $component := .Values.server -}}
+{{- if .Values.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: {{ template "scaffolding.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    component: "{{ $component.name }}"
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+  name: {{ template "scaffolding.server.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ template "scaffolding.server.fullname" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ template "scaffolding.server.fullname" . }}
+{{- end }}

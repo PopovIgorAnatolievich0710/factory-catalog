@@ -1,0 +1,671 @@
+#!groovy
+import groovy.json.JsonSlurper
+
+@Library('custom-lib')
+import static com.tenengroup.Utilities.*
+
+env.TF_VAR_build_tag = "${BUILD_TAG}"
+env.TF_VAR_branch_name = "${BRANCH_NAME.toLowerCase()}"
+
+env.TF_VAR_project_name = 'factory-catalog'
+
+if ("${TF_VAR_branch_name}" == "master") {
+    env.TF_VAR_deploy_env = 'prod'
+    env.TF_VAR_k8s_namespace = "factory-catalog-${env.TF_VAR_deploy_env}"
+    env.PULL_REQUEST_NUMBER = 'NONE'
+    env.DEPLOY = 'true'
+} else if ("${TF_VAR_branch_name}" == "release") {
+    env.TF_VAR_deploy_env = 'stg'
+    env.TF_VAR_k8s_namespace = "factory-catalog-${env.TF_VAR_deploy_env}"
+    env.PULL_REQUEST_NUMBER = 'NONE'
+    env.DEPLOY = 'true'
+} else if ("${TF_VAR_branch_name}" == "develop") {
+    env.TF_VAR_deploy_env = 'dev'
+    env.TF_VAR_k8s_namespace = "factory-catalog-${env.TF_VAR_deploy_env}"
+    env.PULL_REQUEST_NUMBER = 'NONE'
+    env.DEPLOY = 'true'
+} else {
+    env.TF_VAR_deploy_env = "${TF_VAR_branch_name}"
+    env.TF_VAR_k8s_namespace = "factory-catalog-dev"
+    env.PULL_REQUEST_NUMBER = "${env.CHANGE_ID}"
+    env.DEPLOY = 'true'
+}
+
+env.TF_VAR_repo_name = 'factory-catalog'
+env.PROJECT_REPO_URL = "https://github.com/tenengroup/${env.TF_VAR_repo_name}.git"
+env.GIT_USER_PASS_ID = 'k8s-jenkins-credential-core-github-api-access-usr-pwd'
+env.TF_VAR_git_api_token_id = "k8s-jenkins-credential-core-github-api-access"
+env.SLACK_CHANNEL = "factory-catalog-builds"
+env.TF_VAR_kms_key_alias = "factory-catalog"
+
+env.TF_VAR_has_db = "true"
+env.TF_VAR_database_name = "factory_catalog"
+
+env.JENKINS_AGENT_K8S_BUILD_NAMESPACE = env.TF_VAR_k8s_namespace
+env.JENKINS_AGENT_K8S_BUILD_SERVICEACCOUNT = env.TF_VAR_k8s_namespace
+env.git_api_token_id = env.TF_VAR_git_api_token_id
+
+
+env.JENKINS_AGENT_DOCKER_BUILD_IMAGE_AND_TAG = 'tenen/jenkins-agent-shipment-service:jdk21'
+env.TERRAFORM_MODULE_PATH = "devops/terraform"
+
+env.TF_VAR_liveness_probe_path = "/ping"
+env.TF_VAR_readiness_probe_path = "/ping"
+
+env.REDEPLOY_RELEASE = params.REDEPLOY_RELEASE
+
+//Besides the automatically added webhook "https://jenkins.eks.tenengroup.com/github-webhook/" added by jenkins Multibranch pipeline,
+//We use an additional webhook in GitHub for extra pull-request functionality not triggered by Generic Jenkins plugin:
+//(Pull-request review submitted, edited, or dismissed.)
+//https://jenkins.eks.tenengroup.com/generic-webhook-trigger/invoke?token=*****
+//make sure to also set content-type: application/json
+def generic_webhook_trigger_token = "${TF_VAR_project_name}-REPLACE_WITH_WEBHOOK_TOKEN_SUFFIX"
+
+try {
+  env.BUILD_CAUSE_DESCRIPTION = currentBuild.rawBuild.getCause(Cause.UserIdCause)getShortDescription() //if triggered by user
+}
+catch (err) {
+  try {
+    env.BUILD_CAUSE_DESCRIPTION = currentBuild.rawBuild.getCause(jenkins.branch.BranchEventCause)getShortDescription() //if triggered by a push event / new PR, etc
+  }
+  catch (err2) {
+    env.BUILD_CAUSE_DESCRIPTION = "${currentBuild.buildCauses[0].shortDescription}" //if triggered by generic-webhook-trigger
+  }
+}
+
+def pr_approvers = '0'
+def slack_msg_extra_info = []
+def terraform_output_map = [:]
+def globalHelmValuesMap = [:]
+
+def docker_images_map = [
+        'main': [
+            'DOCKERFILE_PATH': "backend/src/app/Tenengroup.FactoryCatalog.Api/Dockerfile",
+            'RELATIVE_CONTEXT_FOLDER': "backend/src/"
+        ],
+        'balancer': [
+            'DOCKERFILE_PATH': "devops/docker/balancer-api.Dockerfile",
+            'RELATIVE_CONTEXT_FOLDER': "backend/src/"
+        ],
+        'ui': [
+            'DOCKERFILE_PATH': "frontend/FactoryCatalogUI/Dockerfile",
+            'RELATIVE_CONTEXT_FOLDER': "frontend/FactoryCatalogUI/"
+        ]
+]
+
+def checkout_project_repo(){
+    checkout scm: [
+        $class           : 'GitSCM',
+        userRemoteConfigs: [[url: "${PROJECT_REPO_URL}", credentialsId: env.GIT_USER_PASS_ID]],
+        extensions       : [
+            [$class: 'CloneOption', noTags: true, shallow: true, depth: 0, reference: ''],
+            [
+                $class: 'SubmoduleOption',
+                disableSubmodules: false,
+                parentCredentials: true,
+                recursiveSubmodules: true,
+                reference: '',
+                trackingSubmodules: false
+            ]
+        ],
+        submoduleCfg: [],
+        branches         : [[name: env.GIT_COMMIT]]
+    ]
+}
+
+def dockerize_multiple(docker_images_map, docker_images_list, globalHelmValuesMap, build_args) {
+    checkout_project_repo()
+    sh "git submodule update --init"
+    docker_images_list.each { docker_image ->
+        globalHelmValuesMap['context_hash_'+docker_image.replace('-', '_')] = sh(returnStdout: true, script: """#!/usr/bin/env bash
+        git ls-files -s ${docker_images_map[docker_image].'RELATIVE_CONTEXT_FOLDER'} ${docker_images_map[docker_image].'DOCKERFILE_PATH'} | git hash-object --stdin
+        """).trim()
+
+        def image_exists = check_if_docker_image_exists this, [appName: "${TF_VAR_project_name}-${docker_image}", context_hash: globalHelmValuesMap['context_hash_'+docker_image.replace('-', '_')]]
+        println('image_exists: ' + image_exists)
+        if (image_exists == "no") {
+            docker_images_map[docker_image].'run_tests' = true
+            dockerize this, [echoMessageStart: "Building docker image for: ${TF_VAR_project_name}-${docker_image}", appName: "${TF_VAR_project_name}-${docker_image}", dockerfilePath: docker_images_map[docker_image].'DOCKERFILE_PATH', dockerRelativeContextFolder: docker_images_map[docker_image].'RELATIVE_CONTEXT_FOLDER', buildArgs: build_args]
+        } else {
+            docker_images_map[docker_image].'run_tests' = false
+        }
+    }
+}
+
+def main_agent_pod_yaml = """
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: ${JENKINS_AGENT_K8S_BUILD_NAMESPACE}
+spec:
+  serviceAccountName: ${env.JENKINS_AGENT_K8S_BUILD_SERVICEACCOUNT}
+  securityContext:
+    fsGroup: 65534
+    runAsUser: 0
+    privileged: true
+  containers:
+  - name: jnlp
+    resources:
+      requests:
+        memory: 100Mi
+        cpu: 10m
+      limits:
+        memory: 2048Mi
+        cpu: 2000m
+  - name: all-in-one
+    image: ${JENKINS_AGENT_DOCKER_BUILD_IMAGE_AND_TAG}
+    imagePullPolicy: IfNotPresent
+    tty: true
+    command:
+    - cat
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 10m
+      limits:
+        memory: 8192Mi
+        cpu: 2000m
+
+  nodeSelector:
+    eks.amazonaws.com/capacityType: "ON_DEMAND"
+"""
+
+
+properties([
+    parameters([
+    [$class: 'ChoiceParameter',
+    choiceType: 'PT_SINGLE_SELECT',
+    description: 'To deploy a previous version select true',
+    filterLength: 1,
+    filterable: false,
+    name: 'REDEPLOY_RELEASE',
+    randomName: 'choice-parameter-12345464367890',
+    script: [
+            $class: 'GroovyScript',
+            script: [
+                    classpath: [],
+                    sandbox: false,
+                    script:
+                            'return["false","true"]'
+            ]
+    ]
+    ],
+    [
+            $class              : 'DynamicReferenceParameter',
+            choiceType          : 'ET_FORMATTED_HTML',
+            description         : 'Select target environment (only if deploying a previous version)',
+            name                : 'TARGET_ENVIRONMENT',
+            omitValueField      : true,
+            randomName          : 'choice-parameter-16497104837592947',
+            //referencedParameters: 'REDEPLOY_RELEASE',
+            script              : [
+                    $class        : 'GroovyScript',
+                    fallbackScript: [
+                            classpath: [],
+                            sandbox  : false,
+                            script   : 'error'
+                    ],
+                    script        : [
+                            classpath: [],
+                            sandbox  : false,
+                            script   : '''
+                                    def FullHTML = ""
+                                    FullHTML += "<head>"
+                                    FullHTML += "<script type='text/javascript'> jQuery(document).on('ready', function() {\tfunction updateOutputValue()  { var current_url = window.location.href; var current_url_parsed = current_url.match(/(.*)\\\\/(.*)\\\\/build/); var current_branch = current_url_parsed[2]; jQuery('#value').append(new Option(current_branch, current_branch));     };"
+                                    FullHTML += " updateOutputValue();"
+                                    FullHTML += "});"
+                                    FullHTML += "</script>"
+                                    FullHTML += "</head>"
+                                    FullHTML += "<body><form><select id='value' name='value'><option value='N/A'>N/A</option></select></form></body>"
+                                        '''
+                    ]
+            ]
+    ],
+    [$class: 'CascadeChoiceParameter',
+    choiceType: 'PT_SINGLE_SELECT',
+    description: 'Select a previous version to redeploy',
+    filterLength: 1,
+    filterable: false,
+    name: 'RELEASE_NAME',
+    randomName: 'choice-parameter-1234546667890',
+    referencedParameters: 'TARGET_ENVIRONMENT',
+    script: [
+            $class: 'GroovyScript',
+            script: [
+                    classpath: [],
+                    sandbox: false,
+                    script:
+                            """import groovy.json.JsonSlurper
+                            import jenkins.model.*
+                            chartmuseum_url = "https://chartmuseum.eks.tenengroup.com/api/${TF_VAR_project_name}-\$TARGET_ENVIRONMENT/charts"
+                            try {
+                                def http_client = new URL(chartmuseum_url).openConnection() as HttpURLConnection
+                                def jenkinsCredentials = com.cloudbees.plugins.credentials.CredentialsProvider.lookupCredentials(
+                                        com.cloudbees.plugins.credentials.Credentials.class,
+                                        Jenkins.instance,
+                                        null
+                                );
+                                def CHARTMUSEUM_CREDS;
+                                for (creds in jenkinsCredentials)
+                                {
+                                    if(creds.id == "k8s-jenkins-credential-chartmuseum-creds-basic-auth")
+                                    {
+                                    CHARTMUSEUM_CREDS = creds.secret;
+                                    break
+                                    }
+                                }
+                                http_client.setRequestMethod('GET')
+                                http_client.setRequestProperty("Accept", "application/json")
+                                http_client.setRequestProperty("Authorization", "Basic " + CHARTMUSEUM_CREDS)
+                                http_client.connect()
+                                // Prepare a variable where we save parsed JSON as a HashMap
+                                def response = [:]
+                                if (http_client.responseCode == 200) {
+                                    response = new JsonSlurper().parseText(http_client.inputStream.getText('UTF-8')).'${TF_VAR_project_name}'.collect{ (it.urls[0]) + "  -  " + (it.created) }
+                                } else {
+                                    println("HTTP response error")
+                                    println http_client.inputStream.getText('UTF-8')
+                                }
+                            } catch (Exception e) {
+                                        println(e)
+                            }"""
+            ]
+    ]
+    ],
+            [$class: 'CascadeChoiceParameter',
+choiceType: 'PT_SINGLE_SELECT',
+description: 'BACKUP_DB',
+filterLength: 1,
+filterable: false,
+name: 'BACKUP_DB',
+randomName: 'choice-parameter-12305967387890',
+script: [
+$class: 'GroovyScript',
+script: [
+        classpath: [],
+        sandbox: false,
+        script:"def options = ['true', 'false']"
+]
+]
+],
+[$class: 'CascadeChoiceParameter',
+choiceType: 'PT_SINGLE_SELECT',
+description: 'DEPLOY',
+filterLength: 1,
+filterable: false,
+name: 'DEPLOY',
+randomName: 'choice-parameter-12205967367890',
+script: [
+$class: 'GroovyScript',
+script: [
+        classpath: [],
+        sandbox: false,
+        script:"def options = ['true', 'false']"
+]
+]
+],
+            ]),
+    [$class: 'BuildDiscarderProperty',
+    strategy: [$class: 'LogRotator', daysToKeepStr: '14', numToKeepStr: '100']],
+    disableConcurrentBuilds()
+
+    ]
+)
+
+pipeline {
+  agent {
+    kubernetes {
+        cloud "tenenkube"
+        slaveConnectTimeout 300 //Timeout in seconds for an agent to be online
+        idleMinutes 10
+        defaultContainer 'all-in-one'
+        yaml main_agent_pod_yaml
+    }
+   }
+   triggers {
+       GenericTrigger(
+                 genericVariables: [
+                         [expressionType: 'JSONPath', key: 'pull_request_number', value: '$.pull_request.number'],
+                         [expressionType: 'JSONPath', key: 'action', value: '$.action'],
+                         [expressionType: 'JSONPath', key: 'changes', value: '$.changes'],
+                         [expressionType: 'JSONPath', key: 'sender', value: '$.sender.login']
+                 ],
+                 causeString: 'Triggered on PR action: $action, BY: $sender, Changes: $changes',
+                 token: "${generic_webhook_trigger_token}",
+                 printContributedVariables: true,
+                 printPostContent: true,
+                 silentResponse: false,
+                 regexpFilterText: '$pull_request_number',
+                 regexpFilterExpression: env.PULL_REQUEST_NUMBER
+        )
+    }
+
+    options {
+        timeout( time: 120, unit: 'MINUTES' )
+        disableConcurrentBuilds()
+    }
+
+
+    stages {
+      stage( 'Preparation' ) {
+        steps {
+          script {
+              STATUS_MSG = slack_msg_builder this, [MAIN_MSG: "Build started."]
+              send_to_slack(
+                  this,
+                  STATUS_MSG,
+                  'blue'
+              )
+
+              if ("${TF_VAR_branch_name}" == "master") {
+                  // Must manually approve deployment to production
+                  send_to_slack(
+                      this,
+                      "Pending deployment to production\nPlease approve here: [${BUILD_URL}console](${BUILD_URL}console)",
+                      "blue"
+                  )
+                  timeout(time: 15, unit: "MINUTES") {
+                      input message: 'Do you approve the deploy to production?', ok: 'Yes'
+                  }
+                  send_to_slack(
+                      this,
+                      "Deploying to production...\nDeployment approved.",
+                      'blue'
+                  )
+              }
+
+			  build_init this
+
+              //pr envs:
+              delete_resources_for_closed_prs this, ["TF_REPO_NAME": env.TF_VAR_project_name]
+              if (env.CHANGE_ID != null) {
+                  def branch = env.CHANGE_BRANCH.replace("'", "\\'")
+
+              }
+
+            env.VERSIONFULL = generate_full_build_version_string this
+            env.LAST_COMMIT_AUTHOR = get_last_commit_author this
+            env.LAST_COMMIT_MESSAGE = get_last_commit_message this
+
+              dir (env.TERRAFORM_MODULE_PATH) {
+                  writeFile(file: "./state.tf", text: """
+                            terraform {
+                              backend "s3" {
+                                dynamodb_table = "tg-terraform-state-lock"
+                                bucket = "tg-terraform-state"
+                                key    = "${TF_VAR_project_name}/${TF_VAR_project_name}-${env.TF_VAR_deploy_env}.tfstate"
+                                region = "eu-west-1"
+                              }
+                            }
+                            """)
+
+
+                    sh "terraform init"
+                    def terraform_output = sh(returnStdout: true, script: "terraform output -json").trim()
+                    terraform_output_map = new JsonSlurper().parseText(terraform_output)
+                    println(terraform_output_map)
+
+              }
+          }
+        }
+        post {
+           failure {
+             script { env.FAILURE_STAGE = "${STAGE_NAME}" }
+           }
+         }
+      }
+
+      stage( 'Dockerize images' ) {
+          when {
+              anyOf {
+                  expression { env.REDEPLOY_RELEASE == "false" }
+                  expression { env.REDEPLOY_RELEASE == "null" }
+              }
+          }
+        steps {
+          script {
+              node (label: 'docker-builder'){
+                container("main") {
+                    def dockerize_list = docker_images_map.keySet() as List
+                    dockerize_multiple(docker_images_map, dockerize_list, globalHelmValuesMap, "")
+                }
+            }
+          }
+        }
+        post {
+           failure {
+             script { env.FAILURE_STAGE = "${STAGE_NAME}" }
+           }
+         }
+      }
+
+        stage( 'Backup DB' ) {
+            when {
+                allOf {
+                    //only for dev/prod (not pr)
+                    expression { env.BACKUP_DB == 'true' }
+                    expression { terraform_output_map["RDS_DB_IDENTIFIER"] != null }
+                }
+            }
+            steps {
+                script {
+
+                    create_rds_db_snapshot this, [DB_IDENTIFIER: "${terraform_output_map["RDS_DB_IDENTIFIER"].value}", REGION: 'eu-west-1']
+
+                }
+            }
+            post {
+                failure {
+                    script { env.FAILURE_STAGE = "${STAGE_NAME}" }
+                }
+            }
+        }
+        stage( 'Deploy' ) {
+            when {
+                allOf {
+                    expression { env.DEPLOY == "true" }
+                }
+            }
+            environment {
+                TF_VAR_app_version = "${env.VERSIONFULL}"
+                TF_VAR_context_hash_main = "${globalHelmValuesMap['context_hash_main']}"
+                TF_VAR_context_hash_balancer = "${globalHelmValuesMap['context_hash_balancer']}"
+                TF_VAR_context_hash_ui = "${globalHelmValuesMap['context_hash_ui']}"
+            }
+            steps {
+                script {
+                    dir (env.TERRAFORM_MODULE_PATH) {
+                        sh """
+                        terraform apply -auto-approve -lock=false
+                        """
+                        def terraform_output = sh(returnStdout: true, script: "terraform output -json").trim()
+                        terraform_output_map = new JsonSlurper().parseText( terraform_output )
+
+                    }
+                }
+            }
+            post {
+                always {
+                    script {
+
+                        tg_jiraSendDeploymentInfo this
+                    }
+                }
+                failure {
+                    script { env.FAILURE_STAGE = "${STAGE_NAME}" }
+                }
+            }
+        }
+
+      stage('Check if PR approved') {
+        when {
+              allOf {
+                  //expression { "${env.CHANGE_TARGET}" != 'master' }
+                  expression { env.CHANGE_ID != null }
+              }
+        }
+        steps {
+          script {
+              withCredentials([string(credentialsId: "${env.TF_VAR_git_api_token_id}", variable: 'git_api_token')]) {
+              //Following code uses Github API and checks if PR was approved by at least 2 users.
+              //run only if branch is PR:
+              if (env.CHANGE_ID != null) {
+                  pr_approvers = get_number_of_pr_approvers this, [API_TOKEN: "${git_api_token}"]
+                  sh "echo pr_approvers: ${pr_approvers}"
+              }
+          }
+          }
+        }
+        post {
+           failure {
+             script { env.FAILURE_STAGE = "${STAGE_NAME}" }
+           }
+         }
+      }
+        stage('Check if PR approved (for master)') {
+            when {
+                allOf {
+                    expression { "${env.CHANGE_TARGET}" == 'master' }
+                    expression { env.CHANGE_ID != null }
+                }
+            }
+            steps {
+                script {
+                    withCredentials([string(credentialsId: "${env.TF_VAR_git_api_token_id}", variable: 'git_api_token')]) {
+                    //Following code uses Github API and checks if PR was approved by at least 2 users.
+                    //run only if branch is PR:
+                    if (env.CHANGE_ID != null) {
+                        pr_approvers = get_number_of_pr_approvers this, [API_TOKEN: "${git_api_token}"]
+                        sh "echo pr_approvers: ${pr_approvers}"
+                    }
+                }
+                }
+            }
+            post {
+                failure {
+                    script { env.FAILURE_STAGE = "${STAGE_NAME}" }
+                }
+            }
+        }
+
+      stage('Notify Github of Build Status') {
+        when {
+          allOf {
+            //expression { pr_approvers.toInteger() >= 2 }
+            //expression { env.PR_MERGEABLE_STATE == 'clean' }
+            expression { env.CHANGE_ID != null }
+          }
+        }
+        steps {
+            script {
+                withCredentials([string(credentialsId: "${env.TF_VAR_git_api_token_id}", variable: 'git_api_token')]) {
+                    currentBuild.result = 'SUCCESS'
+                    echo "Setting GitHub build status to ${currentBuild.result}"
+                    update_github_commit_status this, [DESCRIPTION: "---", STATE: "${currentBuild.result}", CONTEXT: "jenkins-build-status"]
+                    sh "sleep 5" //github api delay...
+                    env.PR_MERGEABLE_STATE = get_pr_mergeable_state this, [API_TOKEN: "${git_api_token}"]
+                    sh "echo PR_MERGEABLE_STATE: ${PR_MERGEABLE_STATE}"
+                }
+        }
+        }
+        post {
+           failure {
+             script {
+                env.FAILURE_STAGE = "${STAGE_NAME}"
+                //notify github of build status:
+                currentBuild.result = 'FAILURE'
+                echo "Setting GitHub build status to ${currentBuild.result}"
+                update_github_commit_status this, [DESCRIPTION: "---", STATE: "${currentBuild.result}", CONTEXT: "jenkins-build-status"]
+             }
+           }
+         }
+      }
+
+      stage('Merge + Close PR') {
+        when {
+          allOf {
+            expression { pr_approvers.toInteger() >= 2 }
+            expression { env.PR_MERGEABLE_STATE == 'clean' || env.PR_MERGEABLE_STATE == 'unstable' } //state: unstable just means rest of pipeline hasn't completed yet..
+            //expression { env.PR_MERGEABLE_STATE == 'clean' }
+            expression { env.CHANGE_ID != null }
+          }
+        }
+        steps {
+            script {
+                withCredentials([string(credentialsId: "${env.TF_VAR_git_api_token_id}", variable: 'git_api_token')]) {
+                MERGE_STATUS = merge_pr this, [API_TOKEN: "${git_api_token}", COMMIT_TITLE: "Merged by Jenkins"]
+                if ("${MERGE_STATUS}" != "true") {
+                    error("Merge failed: ${MERGE_STATUS}")
+                }
+            }
+        }
+        }
+        post {
+           failure {
+             script { env.FAILURE_STAGE = "${STAGE_NAME}" }
+           }
+         }
+      }
+    }
+
+
+    post {
+        always {
+            script {
+                tg_jiraSendBuildInfo this
+                terraform_output_map.each { key, value ->
+                    if (value.sensitive == false) {
+                        slack_msg_extra_info.add("*${key}:* ${value.value}")
+                    }
+                }
+            }
+        }
+            success {
+                container('all-in-one') {
+                    script {
+                        //change workspace files owner to JENKINS_USER
+                        sh """
+                              JENKINS_USER_ID=`stat -c '%u' ./.git`
+                              chown "\$JENKINS_USER_ID" -R ./
+                              """
+
+
+
+
+                        STATUS_MSG = slack_msg_builder this, [MAIN_MSG: "Build completed successfully.", EXTRA_INFO: slack_msg_extra_info]
+                        send_to_slack(
+                            this,
+                            STATUS_MSG,
+                            'green'
+                        )
+                        //deleteDir() /* clean up our workspace */
+                        delete_workspace this
+                  }
+              }
+            }
+            failure {
+                script {
+                    STATUS_MSG = slack_msg_builder this, [MAIN_MSG: "Build failed on stage: ${env.FAILURE_STAGE.replace("_", "\\_")}", EXTRA_INFO: slack_msg_extra_info]
+                    send_to_slack(
+                        this,
+                        STATUS_MSG,
+                        'red'
+                    )
+                    //deleteDir() /* clean up our workspace */
+                    delete_workspace this
+                }
+            }
+            aborted {
+                script {
+                    STATUS_MSG = slack_msg_builder this, [MAIN_MSG: "Build aborted."]
+                    send_to_slack(
+                        this,
+                        STATUS_MSG,
+                        'grey'
+                    )
+                    //deleteDir() /* clean up our workspace */
+                    delete_workspace this
+              }
+            }
+         }
+}

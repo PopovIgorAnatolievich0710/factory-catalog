@@ -1,0 +1,21 @@
+{{- range $deployName, $deployment := $.Values.deployments -}}{{- if $deployment.enabled -}}{{- if $deployment.autoscaler -}}{{- if $deployment.autoscaler.horizontal -}}
+{{- $fullDeployName := printf "%s-%s" $.Release.Name $deployName | trunc 63 | trimSuffix "-" }}
+
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app: {{ $.Chart.Name }}
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    deployment: {{ $fullDeployName }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
+  name: {{ $fullDeployName }}
+spec:
+{{ toYaml $deployment.autoscaler.horizontal | indent 2 }}
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $fullDeployName }}
+---
+{{- end -}}{{- end -}}{{- end -}}{{- end -}}{{/* component loop */}}

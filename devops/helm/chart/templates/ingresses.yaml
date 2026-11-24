@@ -1,0 +1,95 @@
+{{- range $deployName, $deployment := $.Values.deployments -}}{{- if $deployment.enabled -}}
+{{- $fullDeployName := printf "%s-%s" $.Release.Name $deployName | trunc 63 | trimSuffix "-" }}
+
+{{- range $containerName, $container := $deployment.containers -}}{{- if $container.enabled -}}
+{{- $fullContainerName := printf "%s-%s" $fullDeployName $containerName | trunc 63 | trimSuffix "-" }}
+
+{{- range $ingressName, $ingress := $container.ingress -}}{{- if $ingress.enabled -}}
+{{- $fullIngressName := printf "%s-%s" $fullContainerName $ingressName | trunc 63 | trimSuffix "-" }}
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+{{- if $ingress.annotations }}
+  annotations:
+{{ toYaml $ingress.annotations | indent 4 }}
+{{- end }}
+  labels:
+    app: {{ $.Chart.Name }}
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    deployment: {{ $fullDeployName }}
+    container: {{ $fullContainerName }}
+    ingress: {{ $fullIngressName }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
+  name: {{ $fullIngressName }}
+spec:
+  rules:
+  {{- range $ingress.hosts }}
+    - host: {{ . }}
+      http:
+        paths:
+          - path: {{ $ingress.path }}
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ $fullContainerName }}
+                port:
+                  number: {{ $ingress.servicePort }}
+  {{- end -}}
+{{- if $ingress.tls }}
+  tls:
+{{ toYaml $ingress.tls | indent 4 -}}
+{{- end }}
+---
+{{- end -}}{{- end -}}{{/* ingress loop */}}
+{{- end -}}{{- end -}}{{/* container loop */}}
+{{- end -}}{{- end -}}{{/* deployment loop */}}
+
+{{- range $stateFullName, $stateFullSet := $.Values.statefulsets -}}{{- if $stateFullSet.enabled -}}
+{{- $fullStateFullName := printf "%s-%s" $.Release.Name $stateFullName | trunc 63 | trimSuffix "-" }}
+
+{{- range $containerName, $container := $stateFullSet.containers -}}{{- if $container.enabled -}}
+{{- $fullContainerName := printf "%s-%s" $fullStateFullName $containerName | trunc 63 | trimSuffix "-" }}
+
+{{- range $ingressName, $ingress := $container.ingress -}}{{- if $ingress.enabled -}}
+{{- $fullIngressName := printf "%s-%s" $fullContainerName $ingressName | trunc 63 | trimSuffix "-" }}
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+{{- if $ingress.annotations }}
+  annotations:
+{{ toYaml $ingress.annotations | indent 4 }}
+{{- end }}
+  labels:
+    app: {{ $.Chart.Name }}
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    deployment: {{ $fullStateFullName }}
+    container: {{ $fullContainerName }}
+    ingress: {{ $fullIngressName }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
+  name: {{ $fullIngressName }}
+spec:
+  rules:
+  {{- range $ingress.hosts }}
+    - host: {{ . }}
+      http:
+        paths:
+          - path: {{ $ingress.path }}
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ $fullContainerName }}
+                port:
+                  number: {{ $ingress.servicePort }}
+  {{- end -}}
+{{- if $ingress.tls }}
+  tls:
+{{ toYaml $ingress.tls | indent 4 -}}
+{{- end }}
+---
+{{- end -}}{{- end -}}{{/* ingress loop */}}
+{{- end -}}{{- end -}}{{/* container loop */}}
+{{- end -}}{{- end -}}{{/* statefulsets loop */}}

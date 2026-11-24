@@ -1,0 +1,53 @@
+{{- range $deployName, $deployment := $.Values.deployments -}}{{- if $deployment.enabled -}}
+{{- $fullDeployName := printf "%s-%s" $.Release.Name $deployName | trunc 63 | trimSuffix "-" }}
+
+{{- range $containerName, $container := $deployment.containers -}}{{- if $container.enabled -}}{{- if $container.config -}}
+{{- $fullContainerName := printf "%s-%s" $fullDeployName $containerName | trunc 63 | trimSuffix "-" }}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  labels:
+    app: {{ $.Chart.Name }}
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    deployment: {{ $fullDeployName }}
+    container: {{ $fullContainerName }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
+  name: {{ $fullContainerName }}
+data:
+{{ toYaml $container.config | indent 2 }}
+---
+{{- end -}}{{- end -}}{{- end -}}{{/* container loop */}}
+{{- end -}}{{- end -}}{{/* deployment loop */}}
+
+{{- range $stateFullName, $stateFullSet := $.Values.statefulsets -}}{{- if $stateFullSet.enabled -}}
+{{- $fullStateFullName := printf "%s-%s" $.Release.Name $stateFullName | trunc 63 | trimSuffix "-" }}
+
+{{- range $containerName, $container := $stateFullSet.containers -}}{{- if $container.enabled -}}{{- if $container.config -}}
+{{- $fullContainerName := printf "%s-%s" $fullStateFullName $containerName | trunc 63 | trimSuffix "-" }}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  labels:
+    app: {{ $.Chart.Name }}
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    deployment: {{ $fullStateFullName }}
+    container: {{ $fullContainerName }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
+  name: {{ $fullContainerName }}
+data:
+{{ toYaml $container.config | indent 2 }}
+---
+{{- end -}}{{- end -}}{{- end -}}{{/* container loop */}}
+{{- end -}}{{- end -}}{{/* deployment loop */}}
