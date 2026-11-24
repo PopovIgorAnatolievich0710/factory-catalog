@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using Tenengroup.FactoryCatalog.Business.Quotes;
 using Tenengroup.FactoryCatalog.Business.Skus.FactoryShare;
 using Tenengroup.FactoryCatalog.Domains.Skus;
 
@@ -90,5 +91,26 @@ public class FactoryShareCalculatorTests
         ]);
 
         Assert.That(shares.Values, Is.All.EqualTo(0m));
+    }
+
+    [Test]
+    public void Effective_MatchesQuoteShareRedistribution()
+    {
+        var shares = FactoryShareCalculator.Effective(
+        [
+            new FactoryShareInput("110", 33.33m, null, true),
+            new FactoryShareInput("125", 33.33m, 20, true),
+            new FactoryShareInput("315", 33.34m, null, true),
+            new FactoryShareInput("410", 10, null, false)
+        ]);
+        var expected = ShareRedistribution.Redistribute(new Dictionary<string, decimal>
+        {
+            ["110"] = 33.33m,
+            ["125"] = 20,
+            ["315"] = 33.34m
+        });
+
+        Assert.That(shares.Where(s => s.Key != "410"), Is.EquivalentTo(expected));
+        Assert.That(shares["410"], Is.EqualTo(0m));
     }
 }
