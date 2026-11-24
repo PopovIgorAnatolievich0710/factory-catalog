@@ -1,0 +1,36 @@
+{{- range $deployName, $deployment := $.Values.deployments -}}{{- if $deployment.enabled -}}
+{{- $fullDeployName := printf "%s-%s" $.Release.Name $deployName | trunc 63 | trimSuffix "-" }}
+
+{{- range $pvName, $pv :=  $deployment.persistentVolumes -}}{{- if $pv.enabled -}}{{- if not $pv.existingClaim -}}
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  {{- if $pv.annotations }}
+  annotations:
+{{ toYaml $pv.annotations | indent 4 }}
+  {{- end }}
+  labels:
+    app: {{ $fullDeployName }}
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    deployment: {{ $fullDeployName }}
+    persistentVolume: {{ $pvName }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
+  name: {{ printf "%s-%s" $fullDeployName $pvName | trunc 63 | trimSuffix "-" }}
+spec:
+  accessModes:
+{{ toYaml $pv.accessModes | indent 4 }}
+{{- if $pv.storageClass }}
+{{- if (eq "-" $pv.storageClass) }}
+  storageClassName: ""
+{{- else }}
+  storageClassName: "{{ $pv.storageClass }}"
+{{- end }}
+{{- end }}
+  resources:
+    requests:
+      storage: "{{ $pv.size }}"
+---
+{{- end -}}{{- end -}}{{- end -}} {{/* pv loop */}}
+{{- end -}}{{- end -}}{{/* deployment loop */}}
