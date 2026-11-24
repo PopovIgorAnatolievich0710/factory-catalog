@@ -31,9 +31,18 @@ public record QuoteComponent(
     decimal? UnitCost,
     string? StockStatus,
     string? AlternativeUsed,
-    decimal? Cost);
+    decimal? Cost = null,
+    string? Currency = null);
 
-public record QuoteProcess(string ProcessId, decimal Quantity, int? CapacityPct, decimal? LaborCost, int? RemainingPct);
+public record QuoteProcess(
+    string ProcessId,
+    decimal Quantity,
+    int? CapacityPct,
+    decimal? LaborCost,
+    int? RemainingPct,
+    string? Currency = null);
+
+public record CatalogProductionLogEntry(string ProcessId, string? MachineType);
 
 public record FactoryQuote(
     string QuoteId,
@@ -47,17 +56,41 @@ public record FactoryQuote(
     IReadOnlyCollection<QuoteProcess>? Processes,
     string? Status = null,
     string? ReproductionOf = null,
-    IReadOnlyCollection<string>? Warnings = null);
+    IReadOnlyCollection<string>? Warnings = null,
+    DateTime? SelectedAt = null,
+    DateTime? ProducedAt = null,
+    DateTime? TransferredAt = null,
+    IReadOnlyCollection<CatalogProductionLogEntry>? ProductionLog = null);
 
-public record QuoteSet(string QuoteKey, DateTime? ValidUntil, IReadOnlyCollection<FactoryQuote> Quotes);
+public record QuoteSet(
+    string QuoteKey,
+    DateTime? ValidUntil,
+    IReadOnlyCollection<FactoryQuote> Quotes,
+    Guid? RequestId = null,
+    string? OrderId = null,
+    string? OrderItemId = null,
+    string? SkuUuid = null,
+    int? Quantity = null,
+    string? Mode = null,
+    DateTime? CreatedAt = null);
 
-public record QuoteLifecycleResult(string QuoteKey, string? OrderId, string? OrderItemId, FactoryQuote Quote);
+public record QuoteDetails(
+    string QuoteKey,
+    Guid RequestId,
+    string? OrderId,
+    string? OrderItemId,
+    string SkuUuid,
+    int Quantity,
+    string Mode,
+    DateTime ValidUntil,
+    DateTime CreatedAt,
+    FactoryQuote Quote);
 
-public record ProductionLogEntry(string ProcessId, string? MachineType, decimal? Quantity);
+public record QuoteSearchResult(IReadOnlyCollection<QuoteDetails> Items, int TotalCount);
 
 public record MarkQuoteProducedRequest(
     DateTime ProducedAt,
-    IReadOnlyCollection<ProductionLogEntry> ProductionLog,
+    IReadOnlyCollection<CatalogProductionLogEntry> ProductionLog,
     string? ReproductionOfQuoteId);
 
 public record CatalogMoney(decimal Amount, string Currency);
@@ -73,11 +106,4 @@ public record CatalogFactory(string Id, string Name, string? CountryCode, bool I
 
 public record CatalogUser(string Email, string Name, IReadOnlyCollection<string> Roles, IReadOnlyCollection<string> FactoryIds);
 
-public record ProcessCapacity(
-    string ProcessId,
-    string Name,
-    string? Type,
-    string? MeasuredIn,
-    int CapacityPct,
-    decimal? MaxPerDay,
-    decimal? UsedToday);
+public record ProcessCapacity(string ProcessId, string Name, string? Type, int CapacityPct, decimal? MaxPerDay, decimal? UsedToday);

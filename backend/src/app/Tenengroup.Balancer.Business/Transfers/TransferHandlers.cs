@@ -134,7 +134,7 @@ public class TransferItemsCommandHandler(
     ICatalogClient catalogClient,
     IEventPublisher eventPublisher,
     ICurrentUser currentUser,
-    BalancerOptions options,
+    BalancerEventsOptions options,
     TimeProvider timeProvider,
     ILogger<TransferItemsCommandHandler> logger) : IRequestHandler<TransferItemsCommand, TransferResultDto>
 {
@@ -231,10 +231,10 @@ public class TransferItemsCommandHandler(
         db.AllocationTransfers.Add(transfer);
         await db.SaveChangesAsync(cancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(options.EventsTopicArn))
+        if (!string.IsNullOrWhiteSpace(options.AllocationDecidedTopicArn))
         {
             await eventPublisher.Publish(
-                options.EventsTopicArn,
+                options.AllocationDecidedTopicArn,
                 BalancerEventTypes.AllocationTransferred,
                 new AllocationTransferredEvent(
                     transfer.OrderId,

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Tenengroup.Balancer.Business.Abstractions.Catalog;
 using Tenengroup.Infrastructure.Common.Mediators;
 
@@ -12,9 +11,9 @@ public class GetQuoteSetQueryHandler(ICatalogClient catalogClient) : IRequestHan
     }
 }
 
-public class SearchQuotesQueryHandler(ICatalogClient catalogClient) : IRequestHandler<SearchQuotesQuery, JsonElement>
+public class SearchQuotesQueryHandler(ICatalogClient catalogClient) : IRequestHandler<SearchQuotesQuery, QuoteSearchResult>
 {
-    public Task<JsonElement> Handle(SearchQuotesQuery request, CancellationToken cancellationToken)
+    public Task<QuoteSearchResult> Handle(SearchQuotesQuery request, CancellationToken cancellationToken)
     {
         return catalogClient.SearchQuotes(request.Request, cancellationToken);
     }

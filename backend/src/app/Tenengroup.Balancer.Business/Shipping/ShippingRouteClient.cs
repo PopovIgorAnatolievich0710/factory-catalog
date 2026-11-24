@@ -7,17 +7,29 @@ namespace Tenengroup.Balancer.Business.Shipping;
 
 public class ShippingRouteClient(HttpClient httpClient) : IShippingRouteClient
 {
+    internal const int PageSize = 500;
     private const string ActiveStatus = "Active";
     private const int ActiveStatusNumber = 0;
 
     public async Task<IReadOnlyCollection<ShippingRouteDto>> GetRoutes(CancellationToken cancellationToken)
     {
-        using var response = await httpClient.PostAsJsonAsync("v1/shippingRoute/getByCriteria", new { }, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        var routes = new List<ShipmentServiceRoute>();
+        int total;
 
-        var envelope = await response.Content.ReadFromJsonAsync<RouteEnvelope>(JsonExtensions.Options, cancellationToken);
+        do
+        {
+            var criteria = new { Statuses = new[] { ActiveStatusNumber },Page = new { Offset = routes.Count, Limit = PageSize } };
+            using var response = await httpClient.PostAsJsonAsync("v1/shippingRoute/getByCriteria", criteria, JsonExtensions.Options, cancellationToken);
+            response.EnsureSuccessStatusCode();
 
-        return (envelope?.Data ?? [])
+            var page = await response.Content.ReadFromJsonAsync<RoutePage>(JsonExtensions.Options, cancellationToken);
+            var data = page?.Data ?? [];
+            routes.AddRange(data);
+            total = data.Count == 0 ? routes.Count : page.TotalRowCount;
+        }
+        while (routes.Count < total);
+
+        return routes
             .Where(IsActive)
             .SelectMany(route => (route.PackingFacilityIds ?? []).SelectMany(facilityId =>
                 (route.ToCountryCodes ?? []).Select(country => new ShippingRouteDto(
@@ -40,7 +52,7 @@ public class ShippingRouteClient(HttpClient httpClient) : IShippingRouteClient
         };
     }
 
-    private record RouteEnvelope(List<ShipmentServiceRoute> Data);
+    private record RoutePage(List<ShipmentServiceRoute> Data, int TotalRowCount);
 
     private record ShipmentServiceRoute(
         int[] PackingFacilityIds,

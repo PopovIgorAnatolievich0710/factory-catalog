@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Tenengroup.Infrastructure.Common.Paging;
 
 namespace Tenengroup.Balancer.Business.Abstractions.Catalog;
@@ -9,13 +8,13 @@ public interface ICatalogClient
 
     Task<QuoteSet> GetQuoteSet(string quoteKey, CancellationToken cancellationToken);
 
-    Task<QuoteLifecycleResult> SelectQuote(string quoteId, CancellationToken cancellationToken);
+    Task<QuoteDetails> SelectQuote(string quoteId, CancellationToken cancellationToken);
 
-    Task<QuoteLifecycleResult> MarkQuoteProduced(string quoteId, MarkQuoteProducedRequest request, CancellationToken cancellationToken);
+    Task<QuoteDetails> MarkQuoteProduced(string quoteId, MarkQuoteProducedRequest request, CancellationToken cancellationToken);
 
-    Task<QuoteLifecycleResult> MarkQuoteTransferred(string quoteId, CancellationToken cancellationToken);
+    Task<QuoteDetails> MarkQuoteTransferred(string quoteId, CancellationToken cancellationToken);
 
-    Task<JsonElement> SearchQuotes(ListRequest request, CancellationToken cancellationToken);
+    Task<QuoteSearchResult> SearchQuotes(ListRequest request, CancellationToken cancellationToken);
 
     Task<DropshipperCost> GetDropshipperCost(string sku, CancellationToken cancellationToken);
 
@@ -25,5 +24,5 @@ public interface ICatalogClient
 
     Task<CatalogUser> GetUser(string authorizationHeader, CancellationToken cancellationToken);
 
-    Task<IReadOnlyCollection<ProcessCapacity>> GetProcessCapacity(string factoryId, DateOnly date, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<ProcessCapacity>> GetProcessCapacity(string factoryId, CancellationToken cancellationToken);
 }

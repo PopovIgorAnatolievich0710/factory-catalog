@@ -12,7 +12,7 @@ namespace Tenengroup.Balancer.Business.Allocations;
 public class OrderQueueHandler(
     IQueueReader queueReader,
     IRequestRunner requestRunner,
-    BalancerOptions options,
+    OrderItemsOptions options,
     ILogger<OrderQueueHandler> logger) : IOrderQueueHandler
 {
     private const int MaxMessages = 10;
@@ -20,7 +20,7 @@ public class OrderQueueHandler(
     public Task Execute(CancellationToken cancellationToken)
     {
         return queueReader.ConsumeMessageCollection(
-            options.OrderQueueUrl,
+            options.QueueUrl,
             MaxMessages,
             BalancerEventTypes.EventTypeAttribute,
             Handle,
@@ -45,7 +45,7 @@ public class OrderQueueHandler(
 public class SupplierQueueHandler(
     IQueueReader queueReader,
     IRequestRunner requestRunner,
-    BalancerOptions options,
+    SupplierEventsOptions options,
     ILogger<SupplierQueueHandler> logger) : ISupplierQueueHandler
 {
     private const int MaxMessages = 10;
@@ -53,7 +53,7 @@ public class SupplierQueueHandler(
     public Task Execute(CancellationToken cancellationToken)
     {
         return queueReader.ConsumeMessageCollection(
-            options.SupplierQueueUrl,
+            options.QueueUrl,
             MaxMessages,
             BalancerEventTypes.EventTypeAttribute,
             Handle,

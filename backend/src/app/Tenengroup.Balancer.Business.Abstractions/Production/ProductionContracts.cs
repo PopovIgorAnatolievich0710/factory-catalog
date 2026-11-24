@@ -1,4 +1,3 @@
-using Tenengroup.Balancer.Business.Abstractions.Catalog;
 using Tenengroup.Infrastructure.Common.Mediators;
 
 namespace Tenengroup.Balancer.Business.Abstractions.Production;
@@ -9,7 +8,9 @@ public record RecordProductionCommand(
     string OrderItemId,
     DateTime SentAt,
     bool IsReproduction,
-    IReadOnlyCollection<ProductionLogEntry> ProductionLog) : IRequest<bool>;
+    IReadOnlyCollection<SupplierProductionLogEntry> ProductionLog) : IRequest<bool>;
+
+public record SupplierProductionLogEntry(string ProcessId, string? MachineType, decimal? Quantity);
 
 public interface ISupplierQueueHandler
 {

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,6 +41,9 @@ public static class Root
 
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton(options);
+        services.AddSingleton(configuration.GetSection(OrderItemsOptions.SectionName).Get<OrderItemsOptions>() ?? new OrderItemsOptions());
+        services.AddSingleton(configuration.GetSection(SupplierEventsOptions.SectionName).Get<SupplierEventsOptions>() ?? new SupplierEventsOptions());
+        services.AddSingleton(configuration.GetSection(BalancerEventsOptions.SectionName).Get<BalancerEventsOptions>() ?? new BalancerEventsOptions());
         services.AddMemoryCache();
         services.AddScoped<IRequestRunner, HandlerBasedRequestRunner>();
 
@@ -76,7 +78,7 @@ public static class Root
         services.AddScoped<IRequestHandler<RecordProductionCommand, bool>, RecordProductionCommandHandler>();
 
         services.AddScoped<IRequestHandler<GetQuoteSetQuery, QuoteSet>, GetQuoteSetQueryHandler>();
-        services.AddScoped<IRequestHandler<SearchQuotesQuery, JsonElement>, SearchQuotesQueryHandler>();
+        services.AddScoped<IRequestHandler<SearchQuotesQuery, QuoteSearchResult>, SearchQuotesQueryHandler>();
 
         services.AddScoped<IRequestHandler<SearchOpenItemsQuery, ListResult<OpenItemDto>>, SearchOpenItemsQueryHandler>();
         services.AddScoped<IRequestHandler<GetOpenItemIdsQuery, IReadOnlyCollection<Guid>>, GetOpenItemIdsQueryHandler>();

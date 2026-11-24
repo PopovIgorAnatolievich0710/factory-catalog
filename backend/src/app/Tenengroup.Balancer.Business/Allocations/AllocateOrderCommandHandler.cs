@@ -231,7 +231,7 @@ public class AllocateOrderCommandHandler(
         allocation.DueDate = DueDate(winner, input);
 
         var quote = quoteSet?.Quotes.FirstOrDefault(q => q.FactoryId == winner.FactoryId);
-        if (quote != null)
+        if (quote is { Producible: true, Cost: not null })
         {
             allocation.ApplyQuote(quoteSet.QuoteKey, quote);
             allocation.CostLines = quote.ToCostLines();

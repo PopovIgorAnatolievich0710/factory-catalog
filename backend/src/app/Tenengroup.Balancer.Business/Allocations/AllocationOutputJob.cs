@@ -14,7 +14,7 @@ public class AllocationOutputJob(
     IBalancerDbContext db,
     ICatalogClient catalogClient,
     IEventPublisher eventPublisher,
-    BalancerOptions options,
+    BalancerEventsOptions options,
     TimeProvider timeProvider,
     ILogger<AllocationOutputJob> logger) : IAllocationOutputJob
 {
@@ -35,13 +35,13 @@ public class AllocationOutputJob(
             await catalogClient.SelectQuote(allocation.SelectedQuoteId, cancellationToken);
         }
 
-        if (string.IsNullOrWhiteSpace(options.EventsTopicArn))
+        if (string.IsNullOrWhiteSpace(options.AllocationDecidedTopicArn))
         {
-            logger.LogWarning("Balancer:EventsTopicArn is empty; allocation event for {AllocationId} is not published", allocationId);
+            logger.LogWarning("BalancerEvents:AllocationDecidedTopicArn is empty; allocation event for {AllocationId} is not published", allocationId);
         }
         else
         {
-            await eventPublisher.Publish(options.EventsTopicArn, BalancerEventTypes.AllocationDecided, ToEvent(allocation), cancellationToken);
+            await eventPublisher.Publish(options.AllocationDecidedTopicArn, BalancerEventTypes.AllocationDecided, ToEvent(allocation), cancellationToken);
         }
 
         allocation.OutputPublishedAt = timeProvider.GetUtcNow().UtcDateTime;

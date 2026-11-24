@@ -1,4 +1,5 @@
 using Tenengroup.Balancer.Business.Abstractions.Catalog;
+using Tenengroup.Balancer.Business.Abstractions.Production;
 
 namespace Tenengroup.Balancer.Business.Abstractions.Events;
 
@@ -64,4 +65,4 @@ public record SupplierItemEventMessage(
     string OrderId,
     string OrderItemId,
     DateTime SentAt,
-    IReadOnlyCollection<ProductionLogEntry>? ProductionLog);
+    IReadOnlyCollection<SupplierProductionLogEntry>? ProductionLog);

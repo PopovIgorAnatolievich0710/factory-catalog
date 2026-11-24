@@ -165,17 +165,26 @@ public class RoutingDecisionEngine : IRoutingDecisionEngine
             .Aggregate((left, right) => left.Intersect(right))
             .ToList();
 
+        Ranking together = null;
         if (common.Count > 0)
         {
-            var best = common
+            together = common
                 .Select(factoryId => Rank(routable.Select(e => e.FeasibleFor(factoryId)).ToList(), input))
                 .Aggregate((left, right) => right.IsBetterThan(left) ? right : left);
 
-            return routable.ToDictionary(e => e.OrderItemId, _ => best.Candidates[0].FactoryId);
+            if (together.SlaMisses == 0)
+            {
+                return routable.ToDictionary(e => e.OrderItemId, _ => together.Candidates[0].FactoryId);
+            }
         }
 
         var combinations = routable.Aggregate(1L, (count, e) => Math.Min(count * e.Feasible.Count, MaxCombinations + 1L));
         var chosen = combinations <= MaxCombinations ? BestCombination(routable, input) : Greedy(routable, input);
+
+        if (together != null && Rank(chosen, input).SlaMisses >= together.SlaMisses)
+        {
+            chosen = together.Candidates;
+        }
 
         return routable
             .Select((e, index) => (e.OrderItemId, chosen[index].FactoryId))

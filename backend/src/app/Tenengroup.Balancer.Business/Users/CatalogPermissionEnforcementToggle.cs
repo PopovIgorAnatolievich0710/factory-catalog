@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Tenengroup.Balancer.Business.Abstractions.Catalog;
+using static Tenengroup.Balancer.Business.Catalog.CatalogClient;
 using Tenengroup.Infrastructure.Common.Permissions;
 
 namespace Tenengroup.Balancer.Business.Users;
@@ -24,6 +25,9 @@ public class CatalogPermissionEnforcementToggle(
         {
             var enforced = await catalogClient.IsPermissionEnforcementEnabled(cancellationToken);
             cache.Set(CacheKey, enforced, CacheExpiration);
+            logger.LogInformation(
+                "Permission enforcement read from the factory catalog feature toggle {Toggle}: {Enforced}; cached for {Minutes} minutes",
+                PermissionsToggleName, enforced, CacheExpiration.TotalMinutes);
             return enforced;
         }
         catch (HttpRequestException e)

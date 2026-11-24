@@ -259,6 +259,22 @@ public class RoutingDecisionEngineTests
     }
 
     [Test]
+    public void An_sla_order_is_split_when_keeping_it_together_would_miss_the_sla()
+    {
+        var decision = engine.Decide(Input(
+            [
+                Item("I1", Quote("110", 40m), Quote("125", 40m)),
+                Item("I2", NotProducible("110", "COMPONENT_OOS"), Quote("125", 40m))
+            ],
+            [Route("110", 5m, 1, 2), Route("125", 5m, 4, 5)],
+            sla: Today.AddDays(6)));
+
+        Assert.That(decision.Items.First(i => i.OrderItemId == "I1").Winner.FactoryId, Is.EqualTo("110"));
+        Assert.That(decision.Items.First(i => i.OrderItemId == "I2").Winner.FactoryId, Is.EqualTo("125"));
+        Assert.That(decision.Items.All(i => i.IsSplit), Is.True);
+    }
+
+    [Test]
     public void A_forced_split_uses_as_few_factories_as_the_split_penalty_justifies()
     {
         var decision = engine.Decide(Input(

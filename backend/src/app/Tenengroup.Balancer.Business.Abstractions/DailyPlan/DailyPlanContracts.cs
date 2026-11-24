@@ -17,7 +17,6 @@ public record DailyPlanProcessDto(
     string ProcessId,
     string Name,
     string? Type,
-    string? MeasuredIn,
     int Items,
     decimal Quantity,
     decimal? Done,

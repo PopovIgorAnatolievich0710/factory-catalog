@@ -46,14 +46,13 @@ public class GetDailyPlanQueryHandler(
                 var process = capacity?.FirstOrDefault(c => c.ProcessId == group.Key);
                 var items = group.Select(l => l.AllocationId).Distinct().Count();
                 var available = process?.MaxPerDay * process?.CapacityPct / 100m;
-                var done = process?.UsedToday;
+                var done = request.Date == today ? process?.UsedToday : null;
                 var planned = (done ?? 0m) + items;
 
                 return new DailyPlanProcessDto(
                     group.Key,
                     process?.Name ?? group.Key,
                     process?.Type,
-                    process?.MeasuredIn,
                     items,
                     group.Sum(l => l.Quantity),
                     done,
@@ -79,7 +78,7 @@ public class GetDailyPlanQueryHandler(
     {
         try
         {
-            return await catalogClient.GetProcessCapacity(request.FactoryId, request.Date, cancellationToken);
+            return await catalogClient.GetProcessCapacity(request.FactoryId, cancellationToken);
         }
         catch (HttpRequestException e)
         {

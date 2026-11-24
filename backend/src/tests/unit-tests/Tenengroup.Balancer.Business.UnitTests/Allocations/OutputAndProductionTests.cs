@@ -19,12 +19,13 @@ namespace Tenengroup.Balancer.Business.UnitTests.Allocations;
 [TestFixture]
 public class OutputAndProductionTests
 {
-    private const string TopicArn = "arn:aws:sns:eu-west-1:000000000000:balancer-events";
+    private const string TopicArn = "arn:aws:sns:eu-west-1:000000000000:balancer-allocation-decided";
+    private const string ProducedTopicArn = "arn:aws:sns:eu-west-1:000000000000:balancer-quote-produced";
 
     private Mock<IBalancerDbContext> db;
     private Mock<ICatalogClient> catalog;
     private Mock<IEventPublisher> publisher;
-    private BalancerOptions options;
+    private BalancerEventsOptions options;
 
     [SetUp]
     public void SetUp()
@@ -32,12 +33,12 @@ public class OutputAndProductionTests
         db = EmptyDb();
         catalog = new Mock<ICatalogClient>();
         publisher = new Mock<IEventPublisher>();
-        options = new BalancerOptions { EventsTopicArn = TopicArn };
+        options = new BalancerEventsOptions { AllocationDecidedTopicArn = TopicArn, QuoteProducedTopicArn = ProducedTopicArn };
 
         catalog
             .Setup(c => c.MarkQuoteProduced(It.IsAny<string>(), It.IsAny<MarkQuoteProducedRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string quoteId, MarkQuoteProducedRequest request, CancellationToken _) => new QuoteLifecycleResult(
-                "PQ-O1-I1", "O1", "I1",
+            .ReturnsAsync((string quoteId, MarkQuoteProducedRequest request, CancellationToken _) => new QuoteDetails(
+                "PQ-O1-I1", Guid.Empty, "O1", "I1", "SKU-1", 1, "Live", Now.AddMinutes(15), Now,
                 Quote("110", 45m) with { QuoteId = request.ReproductionOfQuoteId == null ? quoteId : $"{quoteId}-RP1" }));
     }
 
@@ -143,10 +144,10 @@ public class OutputAndProductionTests
             new AllocationCostLine { AllocationId = allocation.Id, Kind = CostLineKind.Packing, Code = "PACKING", Quantity = 1m, QuotedUnitCost = 1m, QuotedCost = 1m });
         QuoteProducedEvent published = null;
         publisher
-            .Setup(p => p.Publish(TopicArn, BalancerEventTypes.QuoteProduced, It.IsAny<QuoteProducedEvent>(), It.IsAny<CancellationToken>()))
+            .Setup(p => p.Publish(ProducedTopicArn, BalancerEventTypes.QuoteProduced, It.IsAny<QuoteProducedEvent>(), It.IsAny<CancellationToken>()))
             .Callback((string _, string _, QuoteProducedEvent e, CancellationToken _) => published = e)
             .ReturnsAsync("message-id");
-        var log = new[] { new ProductionLogEntry("ENGRAVING", "Laser X2", 3m) };
+        var log = new[] { new SupplierProductionLogEntry("ENGRAVING", "Laser X2", 3m) };
 
         var handled = await ProductionHandler().Handle(
             new RecordProductionCommand("evt-1", "O1", "I1", Now, false, log), CancellationToken.None);
@@ -196,7 +197,7 @@ public class OutputAndProductionTests
         });
         QuoteProducedEvent published = null;
         publisher
-            .Setup(p => p.Publish(TopicArn, BalancerEventTypes.QuoteProduced, It.IsAny<QuoteProducedEvent>(), It.IsAny<CancellationToken>()))
+            .Setup(p => p.Publish(ProducedTopicArn, BalancerEventTypes.QuoteProduced, It.IsAny<QuoteProducedEvent>(), It.IsAny<CancellationToken>()))
             .Callback((string _, string _, QuoteProducedEvent e, CancellationToken _) => published = e)
             .ReturnsAsync("message-id");
 

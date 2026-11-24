@@ -16,7 +16,7 @@ public class RecordProductionCommandHandler(
     IBalancerDbContext db,
     ICatalogClient catalogClient,
     IEventPublisher eventPublisher,
-    BalancerOptions options,
+    BalancerEventsOptions options,
     TimeProvider timeProvider,
     ILogger<RecordProductionCommandHandler> logger) : IRequestHandler<RecordProductionCommand, bool>
 {
@@ -64,7 +64,9 @@ public class RecordProductionCommandHandler(
         {
             var produced = await catalogClient.MarkQuoteProduced(
                 request.IsReproduction ? original.QuoteId : quoteId,
-                new MarkQuoteProducedRequest(request.SentAt, request.ProductionLog, request.IsReproduction ? original.QuoteId : null),
+                new MarkQuoteProducedRequest(
+                    request.SentAt,
+                    request.ProductionLog.Select(e => new CatalogProductionLogEntry(e.ProcessId, e.MachineType)).ToList(), request.IsReproduction ? original.QuoteId : null),
                 cancellationToken);
             quoteId = produced.Quote.QuoteId;
         }
@@ -98,14 +100,14 @@ public class RecordProductionCommandHandler(
             await ApplyActualCost(allocation, request.ProductionLog, cancellationToken);
         }
 
-        if (string.IsNullOrWhiteSpace(options.EventsTopicArn))
+        if (string.IsNullOrWhiteSpace(options.QuoteProducedTopicArn))
         {
-            logger.LogWarning("Balancer:EventsTopicArn is empty; produced event for {OrderId} {OrderItemId} is not published",
+            logger.LogWarning("BalancerEvents:QuoteProducedTopicArn is empty; produced event for {OrderId} {OrderItemId} is not published",
                 allocation.OrderId, allocation.OrderItemId);
         }
         else
         {
-            await eventPublisher.Publish(options.EventsTopicArn, BalancerEventTypes.QuoteProduced, ToEvent(allocation, record), cancellationToken);
+            await eventPublisher.Publish(options.QuoteProducedTopicArn, BalancerEventTypes.QuoteProduced, ToEvent(allocation, record), cancellationToken);
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -115,7 +117,7 @@ public class RecordProductionCommandHandler(
 
     private async Task ApplyActualCost(
         Allocation allocation,
-        IReadOnlyCollection<ProductionLogEntry> productionLog,
+        IReadOnlyCollection<SupplierProductionLogEntry> productionLog,
         CancellationToken cancellationToken)
     {
         var measured = productionLog

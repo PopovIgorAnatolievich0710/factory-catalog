@@ -1,6 +1,5 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text.Json;
 using Tenengroup.Balancer.Business.Abstractions.Catalog;
 using Tenengroup.Infrastructure.Common.Json;
 using Tenengroup.Infrastructure.Common.Paging;
@@ -21,24 +20,24 @@ public class CatalogClient(HttpClient httpClient) : ICatalogClient
         return Get<QuoteSet>($"v1/quotes/{Uri.EscapeDataString(quoteKey)}", cancellationToken);
     }
 
-    public Task<QuoteLifecycleResult> SelectQuote(string quoteId, CancellationToken cancellationToken)
+    public Task<QuoteDetails> SelectQuote(string quoteId, CancellationToken cancellationToken)
     {
-        return Post<QuoteLifecycleResult>($"v1/quotes/{Uri.EscapeDataString(quoteId)}/select", null, cancellationToken);
+        return Post<QuoteDetails>($"v1/quotes/{Uri.EscapeDataString(quoteId)}/select", null, cancellationToken);
     }
 
-    public Task<QuoteLifecycleResult> MarkQuoteProduced(string quoteId, MarkQuoteProducedRequest request, CancellationToken cancellationToken)
+    public Task<QuoteDetails> MarkQuoteProduced(string quoteId, MarkQuoteProducedRequest request, CancellationToken cancellationToken)
     {
-        return Post<QuoteLifecycleResult>($"v1/quotes/{Uri.EscapeDataString(quoteId)}/produced", request, cancellationToken);
+        return Post<QuoteDetails>($"v1/quotes/{Uri.EscapeDataString(quoteId)}/produced", request, cancellationToken);
     }
 
-    public Task<QuoteLifecycleResult> MarkQuoteTransferred(string quoteId, CancellationToken cancellationToken)
+    public Task<QuoteDetails> MarkQuoteTransferred(string quoteId, CancellationToken cancellationToken)
     {
-        return Post<QuoteLifecycleResult>($"v1/quotes/{Uri.EscapeDataString(quoteId)}/transferred", null, cancellationToken);
+        return Post<QuoteDetails>($"v1/quotes/{Uri.EscapeDataString(quoteId)}/transferred", null, cancellationToken);
     }
 
-    public Task<JsonElement> SearchQuotes(ListRequest request, CancellationToken cancellationToken)
+    public Task<QuoteSearchResult> SearchQuotes(ListRequest request, CancellationToken cancellationToken)
     {
-        return Post<JsonElement>("v1/quotes/search", request, cancellationToken);
+        return Post<QuoteSearchResult>("v1/quotes/search", request, cancellationToken);
     }
 
     public Task<DropshipperCost> GetDropshipperCost(string sku, CancellationToken cancellationToken)
@@ -66,10 +65,22 @@ public class CatalogClient(HttpClient httpClient) : ICatalogClient
         return await Read<CatalogUser>(response, cancellationToken);
     }
 
-    public async Task<IReadOnlyCollection<ProcessCapacity>> GetProcessCapacity(string factoryId, DateOnly date, CancellationToken cancellationToken)
+    public async Task<IReadOnlyCollection<ProcessCapacity>> GetProcessCapacity(string factoryId, CancellationToken cancellationToken)
     {
-        return await Get<List<ProcessCapacity>>(
-            $"v1/process-capacity/daily?factoryId={Uri.EscapeDataString(factoryId)}&date={date:yyyy-MM-dd}", cancellationToken);
+        var rows = await Get<List<ProcessCapacityRow>>(
+            $"v1/process-capacity/factories/{Uri.EscapeDataString(factoryId)}", cancellationToken);
+
+        return rows
+            .SelectMany(row => row.Cells
+                .Where(cell => cell.FactoryId == factoryId && cell.RunsHere)
+                .Select(cell => new ProcessCapacity(
+                    row.ProcessId,
+                    row.Name,
+                    row.Type,
+                    cell.CapacityPct,
+                    cell.MaxPerDay,
+                    cell.Today?.Used)))
+            .ToList();
     }
 
     private async Task<T> Get<T>(string url, CancellationToken cancellationToken)
@@ -102,4 +113,10 @@ public class CatalogClient(HttpClient httpClient) : ICatalogClient
     private record FeatureToggleEnvelope(List<FeatureToggleItem> Data);
 
     private record FeatureToggleItem(string Name, bool IsEnabled);
+
+    private record ProcessCapacityRow(string ProcessId, string Name, string? Type, List<ProcessCapacityCell> Cells);
+
+    private record ProcessCapacityCell(string FactoryId, bool RunsHere, int CapacityPct, decimal? MaxPerDay, ProcessCapacityToday? Today);
+
+    private record ProcessCapacityToday(decimal Available, decimal Used, int RemainingPct);
 }

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Tenengroup.Balancer.Api.Models;
 using Tenengroup.Balancer.Business.Abstractions.Catalog;
@@ -67,9 +66,9 @@ public class SettingsController(IRequestRunner requestRunner) : ControllerBase
 
     [HttpPost("quotes/search")]
     [AzureAuthorize(Permission.BalancerView)]
-    public Task<JsonElement> SearchQuotes([FromBody] ListRequest request, CancellationToken cancellationToken)
+    public Task<QuoteSearchResult> SearchQuotes([FromBody] ListRequest request, CancellationToken cancellationToken)
     {
-        return requestRunner.Run<SearchQuotesQuery, JsonElement>(new SearchQuotesQuery(request), cancellationToken);
+        return requestRunner.Run<SearchQuotesQuery, QuoteSearchResult>(new SearchQuotesQuery(request), cancellationToken);
     }
 
     private Task<CapacityReservationDto> SaveReservation(long? id, CapacityReservationModel model, CancellationToken cancellationToken)

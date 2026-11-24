@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 using Tenengroup.Balancer.Business.Abstractions.Catalog;
 using Tenengroup.Balancer.Business.Abstractions.Users;
@@ -13,7 +14,8 @@ public class CurrentUser(
     IRoleResolver roleResolver,
     IPermissionEnforcementToggle enforcementToggle,
     ICatalogClient catalogClient,
-    IHttpContextAccessor httpContextAccessor) : ICurrentUser
+    IHttpContextAccessor httpContextAccessor,
+    ILogger<CurrentUser> logger) : ICurrentUser
 {
     private IReadOnlyCollection<string> factoryIds;
 
@@ -47,6 +49,10 @@ public class CurrentUser(
         factoryIds = string.IsNullOrEmpty(authorization) || identity.IsServiceAccount
             ? []
             : (await catalogClient.GetUser(authorization, cancellationToken)).FactoryIds;
+
+        logger.LogInformation(
+            "Own factories of {Actor} resolved from the factory catalog GET v1/user/me with the caller's token: {FactoryIds}",
+            Actor, string.Join(",", factoryIds));
 
         return factoryIds;
     }

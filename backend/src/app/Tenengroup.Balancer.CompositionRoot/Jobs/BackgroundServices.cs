@@ -70,9 +70,10 @@ public abstract class QueueConsumerService(
 
 public class OrderQueueConsumerService(
     IServiceScopeFactory scopeFactory,
+    OrderItemsOptions queue,
     BalancerOptions options,
     ILogger<OrderQueueConsumerService> logger)
-    : QueueConsumerService(scopeFactory, options.OrderQueueUrl, options.QueuePollSeconds, logger)
+    : QueueConsumerService(scopeFactory, queue.QueueUrl, options.QueuePollSeconds, logger)
 {
     protected override Task Consume(IServiceProvider scopedServices, CancellationToken cancellationToken)
     {
@@ -82,9 +83,10 @@ public class OrderQueueConsumerService(
 
 public class SupplierQueueConsumerService(
     IServiceScopeFactory scopeFactory,
+    SupplierEventsOptions queue,
     BalancerOptions options,
     ILogger<SupplierQueueConsumerService> logger)
-    : QueueConsumerService(scopeFactory, options.SupplierQueueUrl, options.QueuePollSeconds, logger)
+    : QueueConsumerService(scopeFactory, queue.QueueUrl, options.QueuePollSeconds, logger)
 {
     protected override Task Consume(IServiceProvider scopedServices, CancellationToken cancellationToken)
     {
