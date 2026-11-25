@@ -67,7 +67,11 @@ public class DecisionContextFactory(
             request.PromisedDeliveryDate,
             request.SlaDeliveryDate,
             request.IsEventOrder,
-            routes.Select(r => new RouteOption(r.OriginFacilityId, r.CostAmount, r.CostCurrency, r.TransitDaysMin, r.TransitDaysMax)).ToList(),
+            options.PackingFacilities
+                .SelectMany(f => routes
+                    .Where(r => r.OriginFacilityId == f.Value)
+                    .Select(r => new RouteOption(f.Key, f.Value, r.CostAmount, r.CostCurrency, r.TransitDaysMin, r.TransitDaysMax, r.WorkingDays)))
+                .ToList(),
             reservations
                 .GroupBy(r => r.FactoryId)
                 .ToDictionary(g => g.Key, g => Math.Min(100, g.Sum(r => r.ReservedPct))),
@@ -86,6 +90,7 @@ public class DecisionContextFactory(
                     g => g.Key,
                     g => Math.Max(0m, 1m - (decimal)g.Count(r => r.IsReproduction) / g.Count(r => !r.IsReproduction))),
             request.AnchorFactoryIds,
+            options.PackingFacilities,
             new DecisionSettings(
                 settings.LatePenaltyPerDay,
                 settings.SplitPenalty,

@@ -44,6 +44,7 @@ public static class Root
         services.AddSingleton(configuration.GetSection(OrderItemsOptions.SectionName).Get<OrderItemsOptions>() ?? new OrderItemsOptions());
         services.AddSingleton(configuration.GetSection(SupplierEventsOptions.SectionName).Get<SupplierEventsOptions>() ?? new SupplierEventsOptions());
         services.AddSingleton(configuration.GetSection(BalancerEventsOptions.SectionName).Get<BalancerEventsOptions>() ?? new BalancerEventsOptions());
+        services.AddSingleton(configuration.GetSection(MasterCatalogOptions.SectionName).Get<MasterCatalogOptions>() ?? new MasterCatalogOptions());
         services.AddMemoryCache();
         services.AddScoped<IRequestRunner, HandlerBasedRequestRunner>();
 
@@ -68,6 +69,7 @@ public static class Root
         services.AddScoped<IAllocationOutputJob, AllocationOutputJob>();
         services.AddScoped<IShippingRouteRefreshJob, ShippingRouteRefreshJob>();
         services.AddScoped<IOrderQueueHandler, OrderQueueHandler>();
+        services.AddScoped<IOcsPaidOrderMapper, OcsPaidOrderMapper>();
         services.AddScoped<ISupplierQueueHandler, SupplierQueueHandler>();
 
         services.AddScoped<IRequestHandler<AllocateOrderCommand, IReadOnlyCollection<AllocationDto>>, AllocateOrderCommandHandler>();
@@ -76,6 +78,7 @@ public static class Root
         services.AddScoped<IRequestHandler<EstimateAllocationQuery, EstimateDto>, EstimateAllocationQueryHandler>();
         services.AddScoped<IRequestHandler<RecordLegacyDecisionCommand>, RecordLegacyDecisionCommandHandler>();
         services.AddScoped<IRequestHandler<RecordProductionCommand, bool>, RecordProductionCommandHandler>();
+        services.AddScoped<IRequestHandler<MarkReproductionRequestedCommand, bool>, MarkReproductionRequestedCommandHandler>();
 
         services.AddScoped<IRequestHandler<GetQuoteSetQuery, QuoteSet>, GetQuoteSetQueryHandler>();
         services.AddScoped<IRequestHandler<SearchQuotesQuery, QuoteSearchResult>, SearchQuotesQueryHandler>();

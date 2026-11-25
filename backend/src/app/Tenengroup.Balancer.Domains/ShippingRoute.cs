@@ -16,5 +16,7 @@ public class ShippingRoute
 
     public int TransitDaysMax { get; set; }
 
+    public int[] WorkingDays { get; set; } = [];
+
     public DateTime RefreshedAt { get; set; }
 }

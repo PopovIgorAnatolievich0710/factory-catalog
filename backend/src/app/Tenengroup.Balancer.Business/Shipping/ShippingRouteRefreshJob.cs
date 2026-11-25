@@ -23,7 +23,7 @@ public class ShippingRouteRefreshJob(
 
         var cheapest = fetched
             .GroupBy(r => (r.OriginFacilityId, r.DestinationCountry))
-            .Select(g => g.OrderBy(r => r.CostAmount).ThenBy(r => r.TransitDaysMax).First())
+            .Select(g => g.OrderByDescending(r => r.Priority).ThenBy(r => r.CostAmount).ThenBy(r => r.TransitDaysMax).First())
             .ToList();
 
         var now = timeProvider.GetUtcNow().UtcDateTime;
@@ -48,6 +48,7 @@ public class ShippingRouteRefreshJob(
             row.CostCurrency = route.CostCurrency;
             row.TransitDaysMin = route.TransitDaysMin;
             row.TransitDaysMax = route.TransitDaysMax;
+            row.WorkingDays = route.WorkingDays.ToArray();
             row.RefreshedAt = now;
         }
 

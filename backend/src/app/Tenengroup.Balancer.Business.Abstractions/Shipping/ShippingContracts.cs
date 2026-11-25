@@ -6,7 +6,9 @@ public record ShippingRouteDto(
     decimal CostAmount,
     string CostCurrency,
     int TransitDaysMin,
-    int TransitDaysMax);
+    int TransitDaysMax,
+    bool Priority,
+    IReadOnlyCollection<int> WorkingDays);
 
 public interface IShippingRouteClient
 {

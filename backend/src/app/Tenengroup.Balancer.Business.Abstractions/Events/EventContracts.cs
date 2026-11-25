@@ -1,5 +1,4 @@
 using Tenengroup.Balancer.Business.Abstractions.Catalog;
-using Tenengroup.Balancer.Business.Abstractions.Production;
 
 namespace Tenengroup.Balancer.Business.Abstractions.Events;
 
@@ -8,10 +7,12 @@ public static class BalancerEventTypes
     public const string AllocationDecided = "balancer.allocation.decided";
     public const string AllocationTransferred = "balancer.allocation.transferred";
     public const string QuoteProduced = "balancer.quote.produced";
-    public const string OrderPaid = "ocs.order.paid";
-    public const string SupplierItemSent = "supplier.item.sent";
-    public const string SupplierItemReproduced = "supplier.item.reproduced";
-    public const string EventTypeAttribute = "EventType";
+    public const string OrderPaid = "paid_order_created_v2";
+    public const string OcsEventTypeAttribute = "event_type";
+    public const string SupplierItemSent = "TenenGroup.Supplier.Events.ItemSent";
+    public const string SupplierItemProductionStatusChanged = "TenenGroup.Supplier.Events.ItemProductionStatusChanged";
+    public const string SupplierReproductionStatus = "Reproduction";
+    public const string SupplierEventTypeAttribute = "EventType";
 }
 
 public record Money(decimal Amount, string Currency);
@@ -61,8 +62,11 @@ public record QuoteProducedEvent(
     int ProductionDays,
     string? ReproductionOf);
 
-public record SupplierItemEventMessage(
-    string OrderId,
-    string OrderItemId,
-    DateTime SentAt,
-    IReadOnlyCollection<SupplierProductionLogEntry>? ProductionLog);
+public record SupplierItemSentMessage(long OrderId, long ItemId, int? SupplierId, string? SupplierType);
+
+public record SupplierItemProductionStatusChangedMessage(
+    long OrderId,
+    long ItemId,
+    string? SupplierItemId,
+    string? ProductionStatus,
+    DateTime ChangedAt);

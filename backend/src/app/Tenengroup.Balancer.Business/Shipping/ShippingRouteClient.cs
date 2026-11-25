@@ -1,15 +1,15 @@
 using System.Net.Http.Json;
-using System.Text.Json;
+using Tenengroup.Balancer.Business.Abstractions;
 using Tenengroup.Balancer.Business.Abstractions.Shipping;
 using Tenengroup.Infrastructure.Common.Json;
 
 namespace Tenengroup.Balancer.Business.Shipping;
 
-public class ShippingRouteClient(HttpClient httpClient) : IShippingRouteClient
+public class ShippingRouteClient(HttpClient httpClient, BalancerOptions options) : IShippingRouteClient
 {
     internal const int PageSize = 500;
-    private const string ActiveStatus = "Active";
-    private const int ActiveStatusNumber = 0;
+    private const int ActiveStatus = 0;
+    private static readonly int[] DefaultWorkingDays = [1, 2, 3, 4, 5];
 
     public async Task<IReadOnlyCollection<ShippingRouteDto>> GetRoutes(CancellationToken cancellationToken)
     {
@@ -18,7 +18,7 @@ public class ShippingRouteClient(HttpClient httpClient) : IShippingRouteClient
 
         do
         {
-            var criteria = new { Statuses = new[] { ActiveStatusNumber },Page = new { Offset = routes.Count, Limit = PageSize } };
+            var criteria = new { Statuses = new[] { ActiveStatus }, Page = new { Offset = routes.Count, Limit = PageSize } };
             using var response = await httpClient.PostAsJsonAsync("v1/shippingRoute/getByCriteria", criteria, JsonExtensions.Options, cancellationToken);
             response.EnsureSuccessStatusCode();
 
@@ -29,37 +29,36 @@ public class ShippingRouteClient(HttpClient httpClient) : IShippingRouteClient
         }
         while (routes.Count < total);
 
+        var allFacilities = options.PackingFacilities.Values.Distinct().ToList();
+
         return routes
-            .Where(IsActive)
-            .SelectMany(route => (route.PackingFacilityIds ?? []).SelectMany(facilityId =>
+            .Where(route => route.Status == ActiveStatus && route.CarrierServiceType?.Method == options.ShippingServiceLevel)
+            .SelectMany(route => (route.PackingFacilityIds?.Select(id => id.ToString()) ?? allFacilities).SelectMany(facilityId =>
                 (route.ToCountryCodes ?? []).Select(country => new ShippingRouteDto(
-                    facilityId.ToString(),
+                    facilityId,
                     country.ToUpperInvariant(),
                     route.ShippingCost,
                     route.CurrencyCode,
                     route.ShippingTimeFrame,
-                    route.ShippingTimeFrame + route.PackingTimeFrame))))
+                    route.ShippingTimeFrame + route.PackingTimeFrame,
+                    route.Priority,
+                    route.ShippingWorkingDays is { Length: > 0 } ? route.ShippingWorkingDays : DefaultWorkingDays))))
             .ToList();
-    }
-
-    private static bool IsActive(ShipmentServiceRoute route)
-    {
-        return route.Status.ValueKind switch
-        {
-            JsonValueKind.String => string.Equals(route.Status.GetString(), ActiveStatus, StringComparison.OrdinalIgnoreCase),
-            JsonValueKind.Number => route.Status.GetInt32() == ActiveStatusNumber,
-            _ => true
-        };
     }
 
     private record RoutePage(List<ShipmentServiceRoute> Data, int TotalRowCount);
 
+    private record CarrierServiceType(int? Method);
+
     private record ShipmentServiceRoute(
-        int[] PackingFacilityIds,
-        string[] ToCountryCodes,
+        int[]? PackingFacilityIds,
+        string[]? ToCountryCodes,
         decimal ShippingCost,
         string CurrencyCode,
         int PackingTimeFrame,
         int ShippingTimeFrame,
-        JsonElement Status);
+        int Status,
+        bool Priority,
+        int[]? ShippingWorkingDays,
+        CarrierServiceType? CarrierServiceType);
 }

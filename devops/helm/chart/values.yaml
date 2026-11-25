@@ -383,6 +383,9 @@ deployments:
           ShipmentService__BaseUrl: "${shipment_service_base_url}"
           ShipmentService__Username: "${shipment_service_username}"
           ShipmentService__Password: "${shipment_service_password}"
+          MasterCatalog__BaseUrl: "${master_catalog_base_url}"
+          MasterCatalog__Username: "${master_catalog_username}"
+          MasterCatalog__Password: "${master_catalog_password}"
           OrderItems__QueueUrl: ${ocs_order_items_queue_url}
           SupplierEvents__QueueUrl: ${supplier_events_queue_url}
           BalancerEvents__AllocationDecidedTopicArn: ${allocation_decided_topic_arn}

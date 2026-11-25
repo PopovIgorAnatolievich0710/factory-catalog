@@ -115,7 +115,7 @@ public class EstimateAllocationQueryHandler(
 
         return new EstimateDto(
             decision.Winner.FactoryId,
-            decision.Winner.FactoryId,
+            input.PackingFacilityIds.GetValueOrDefault(decision.Winner.FactoryId),
             decision.Winner.EtaFrom,
             decision.Winner.EtaTo,
             decision.Winner.TotalCost,

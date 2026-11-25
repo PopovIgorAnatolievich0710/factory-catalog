@@ -218,7 +218,7 @@ public class AllocateOrderCommandHandler(
         allocation.FallbackReason = decision.FallbackReason;
         allocation.FactoryId = winner.FactoryId;
         allocation.OriginalFactoryId = winner.FactoryId;
-        allocation.PackingFacilityId = winner.FactoryId;
+        allocation.PackingFacilityId = input.PackingFacilityIds.GetValueOrDefault(winner.FactoryId);
         allocation.ShippingCost = winner.ShippingCost;
         allocation.TotalCost = winner.TotalCost;
         allocation.CheapestFeasibleTotalCost = decision.CheapestFeasibleTotalCost;
@@ -247,7 +247,10 @@ public class AllocateOrderCommandHandler(
             return input.Today.AddDays(input.Settings.DefaultProductionDays);
         }
 
-        var shipBy = (input.PromisedDeliveryDate ?? winner.EtaTo.Value).AddDays(-winner.TransitDaysMax.Value);
+        var deliveryDate = input.PromisedDeliveryDate ?? winner.EtaTo.Value;
+        var route = input.Routes.FirstOrDefault(r => r.FactoryId == winner.FactoryId);
+        var shipBy = route?.LatestShipDate(deliveryDate, winner.TransitDaysMax.Value)
+                     ?? deliveryDate.AddDays(-winner.TransitDaysMax.Value);
         return shipBy < input.Today ? input.Today : shipBy;
     }
 

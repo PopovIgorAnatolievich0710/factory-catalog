@@ -6,6 +6,7 @@ namespace Tenengroup.Infrastructure.Common.Aws.Sqs;
 public class MessageReader : IMessageReader
 {
     public const string CorrelationIdAttribute = "CorrelationId";
+    public const string SentTimestampAttribute = "SentTimestamp";
 
     public EventMessageValue ReadMessage(Message message, string eventTypeAttribute)
     {
@@ -14,7 +15,8 @@ public class MessageReader : IMessageReader
             MessageId = message.MessageId,
             DataJson = message.Body,
             EventType = ReadAttribute(message, eventTypeAttribute) ?? string.Empty,
-            CorrelationId = ReadAttribute(message, CorrelationIdAttribute)
+            CorrelationId = ReadAttribute(message, CorrelationIdAttribute),
+            SentAt = ReadSentAt(message)
         };
 
         if (TryReadEnvelope(message.Body, out var envelope))
@@ -50,6 +52,15 @@ public class MessageReader : IMessageReader
         {
             return false;
         }
+    }
+
+    private static DateTime? ReadSentAt(Message message)
+    {
+        return message.Attributes != null
+               && message.Attributes.TryGetValue(SentTimestampAttribute, out var value)
+               && long.TryParse(value, out var milliseconds)
+            ? DateTimeOffset.FromUnixTimeMilliseconds(milliseconds).UtcDateTime
+            : null;
     }
 
     private static string? ReadAttribute(Message message, string name)

@@ -194,6 +194,10 @@ namespace Tenengroup.Balancer.DataAccess.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("quote_key");
 
+                    b.Property<DateTime?>("ReproductionRequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reproduction_requested_at");
+
                     b.Property<string>("SelectedQuoteId")
                         .HasMaxLength(220)
                         .HasColumnType("character varying(220)")
@@ -756,6 +760,11 @@ namespace Tenengroup.Balancer.DataAccess.Migrations
                     b.Property<int>("TransitDaysMin")
                         .HasColumnType("integer")
                         .HasColumnName("transit_days_min");
+
+                    b.PrimitiveCollection<int[]>("WorkingDays")
+                        .IsRequired()
+                        .HasColumnType("integer[]")
+                        .HasColumnName("working_days");
 
                     b.HasKey("Id")
                         .HasName("pk_shipping_route_cache");

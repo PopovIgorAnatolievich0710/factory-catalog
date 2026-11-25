@@ -146,14 +146,14 @@ variable "sap_export_writer_arns" {
 
 variable "ocs_order_items_filter_policy" {
   type    = string
-  default = ""
+  default = "{\"event_type\":[\"paid_order_created_v2\"]}"
 }
 
 variable "supplier_event_types" {
   type = list(string)
   default = [
     "TenenGroup.Supplier.Events.ItemSent",
-    "TenenGroup.Supplier.Events.REPLACE_WITH_REPRODUCED_EVENT_NAME"
+    "TenenGroup.Supplier.Events.ItemProductionStatusChanged"
   ]
 }
 

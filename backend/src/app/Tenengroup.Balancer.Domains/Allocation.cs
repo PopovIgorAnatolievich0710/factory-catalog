@@ -90,5 +90,7 @@ public class Allocation
 
     public DateTime? ProducedAt { get; set; }
 
+    public DateTime? ReproductionRequestedAt { get; set; }
+
     public List<AllocationCostLine> CostLines { get; set; } = [];
 }

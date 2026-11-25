@@ -21,7 +21,8 @@ public class QueueReader(IAmazonSQS sqsClient, IMessageReader messageReader, ILo
             QueueUrl = queueUrl,
             WaitTimeSeconds = WaitTimeSeconds,
             MaxNumberOfMessages = maxMessageCount,
-            MessageAttributeNames = ["All"]
+            MessageAttributeNames = ["All"],
+            MessageSystemAttributeNames = [MessageReader.SentTimestampAttribute]
         };
 
         if (visibilityTimeout.HasValue)

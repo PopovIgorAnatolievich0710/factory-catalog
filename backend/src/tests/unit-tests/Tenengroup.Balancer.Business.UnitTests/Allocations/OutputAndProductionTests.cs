@@ -150,7 +150,7 @@ public class OutputAndProductionTests
         var log = new[] { new SupplierProductionLogEntry("ENGRAVING", "Laser X2", 3m) };
 
         var handled = await ProductionHandler().Handle(
-            new RecordProductionCommand("evt-1", "O1", "I1", Now, false, log), CancellationToken.None);
+            new RecordProductionCommand("evt-1", "O1", "I1", Now, log), CancellationToken.None);
 
         Assert.That(handled, Is.True);
         catalog.Verify(c => c.MarkQuoteProduced(
@@ -179,11 +179,12 @@ public class OutputAndProductionTests
     }
 
     [Test]
-    public async Task A_reproduction_creates_a_new_record_linked_to_the_original()
+    public async Task A_sending_after_a_reproduction_request_creates_a_new_record_linked_to_the_original()
     {
         var allocation = OpenAllocation();
         allocation.Status = AllocationStatus.Produced;
         allocation.ProducedAt = Now.AddDays(-2);
+        allocation.ReproductionRequestedAt = Now.AddDays(-1);
         db.SetupSet(x => x.Allocations, allocation);
         db.SetupSet(x => x.ProductionRecords, new ProductionRecord
         {
@@ -202,7 +203,7 @@ public class OutputAndProductionTests
             .ReturnsAsync("message-id");
 
         var handled = await ProductionHandler().Handle(
-            new RecordProductionCommand("evt-2", "O1", "I1", Now, true, []), CancellationToken.None);
+            new RecordProductionCommand("evt-2", "O1", "I1", Now, []), CancellationToken.None);
 
         Assert.That(handled, Is.True);
         catalog.Verify(c => c.MarkQuoteProduced(
@@ -222,15 +223,37 @@ public class OutputAndProductionTests
     }
 
     [Test]
-    public async Task A_reproduction_that_arrives_before_the_sent_event_stays_in_the_queue()
+    public async Task A_repeated_sending_without_a_reproduction_request_is_ignored()
     {
-        db.SetupSet(x => x.Allocations, OpenAllocation());
+        var allocation = OpenAllocation();
+        db.SetupSet(x => x.Allocations, allocation);
+        db.SetupSet(x => x.ProductionRecords, new ProductionRecord
+        {
+            AllocationId = allocation.Id,
+            SourceEventId = "evt-1",
+            QuoteId = "PQ-O1-I1-110",
+            SentAt = Now.AddMinutes(-5)
+        });
 
         var handled = await ProductionHandler().Handle(
-            new RecordProductionCommand("evt-2", "O1", "I1", Now, true, []), CancellationToken.None);
+            new RecordProductionCommand("evt-2", "O1", "I1", Now, []), CancellationToken.None);
 
-        Assert.That(handled, Is.False);
-        Assert.That(db.Object.ProductionRecords.Count(), Is.EqualTo(0));
+        Assert.That(handled, Is.True);
+        Assert.That(db.Object.ProductionRecords.Count(), Is.EqualTo(1));
+        catalog.VerifyNoOtherCalls();
+    }
+
+    [Test]
+    public async Task A_reproduction_status_marks_the_live_allocation()
+    {
+        var allocation = OpenAllocation();
+        db.SetupSet(x => x.Allocations, allocation);
+
+        var handled = await new MarkReproductionRequestedCommandHandler(db.Object, NullLogger<MarkReproductionRequestedCommandHandler>.Instance)
+            .Handle(new MarkReproductionRequestedCommand("O1", "I1", Now), CancellationToken.None);
+
+        Assert.That(handled, Is.True);
+        Assert.That(allocation.ReproductionRequestedAt, Is.EqualTo(Now));
     }
 
     [Test]
@@ -241,7 +264,7 @@ public class OutputAndProductionTests
         db.SetupSet(x => x.ProductionRecords, new ProductionRecord { AllocationId = allocation.Id, SourceEventId = "evt-1" });
 
         var handled = await ProductionHandler().Handle(
-            new RecordProductionCommand("evt-1", "O1", "I1", Now, false, []), CancellationToken.None);
+            new RecordProductionCommand("evt-1", "O1", "I1", Now, []), CancellationToken.None);
 
         Assert.That(handled, Is.True);
         catalog.VerifyNoOtherCalls();
@@ -256,7 +279,7 @@ public class OutputAndProductionTests
         db.SetupSet(x => x.Allocations, shadow);
 
         var handled = await ProductionHandler().Handle(
-            new RecordProductionCommand("evt-1", "O1", "I1", Now, false, []), CancellationToken.None);
+            new RecordProductionCommand("evt-1", "O1", "I1", Now, []), CancellationToken.None);
 
         Assert.That(handled, Is.True);
         catalog.VerifyNoOtherCalls();

@@ -1,3 +1,4 @@
+using Tenengroup.Balancer.Business.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Tenengroup.Balancer.Business.Abstractions.Catalog;
@@ -27,6 +28,7 @@ public class TransferPlanner(
     ICatalogClient catalogClient,
     ICurrentUser currentUser,
     IBalancerSettingsProvider settingsProvider,
+    BalancerOptions options,
     TimeProvider timeProvider,
     ILogger<TransferPlanner> logger) : ITransferPlanner
 {
@@ -47,7 +49,7 @@ public class TransferPlanner(
         var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
         var routes = await db.ShippingRoutes
             .AsNoTracking()
-            .Where(r => r.OriginFacilityId == request.ToFactoryId)
+            .Where(r => r.OriginFacilityId == options.PackingFacilityFor(request.ToFactoryId))
             .ToListAsync(cancellationToken);
 
         var planned = new List<PlannedTransfer>();
@@ -179,7 +181,8 @@ public class TransferPlanner(
                 target.QuoteId,
                 oldTotal.HasValue ? newTotal - oldTotal.Value : null,
                 target.CapacitySignalPct,
-                today.AddDays(settings.DefaultProductionDays + route.TransitDaysMax)),
+                new RouteOption(allocation.FactoryId, route.OriginFacilityId, route.CostAmount, route.CostCurrency, route.TransitDaysMin, route.TransitDaysMax, route.WorkingDays)
+                    .DeliveryAfter(today.AddDays(settings.DefaultProductionDays), route.TransitDaysMax)),
             quoteSet,
             target,
             route.CostAmount);

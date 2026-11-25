@@ -44,18 +44,17 @@ public class RecordProductionCommandHandler(
             return true;
         }
 
-        var original = await db.ProductionRecords
-            .FirstOrDefaultAsync(r => r.AllocationId == allocation.Id && !r.IsReproduction, cancellationToken);
+        var records = await db.ProductionRecords
+            .Where(r => r.AllocationId == allocation.Id)
+            .ToListAsync(cancellationToken);
+        var original = records.FirstOrDefault(r => !r.IsReproduction);
+        var lastSentAt = records.Count > 0 ? records.Max(r => r.SentAt) : (DateTime?)null;
+        var isReproduction = original != null;
 
-        if (request.IsReproduction && original == null)
+        if (isReproduction && !(allocation.ReproductionRequestedAt > lastSentAt))
         {
-            logger.LogWarning("Reproduction event {EventId} arrived before the sent event of order {OrderId} item {OrderItemId}",
+            logger.LogInformation("Sent event {EventId} for order {OrderId} item {OrderItemId} repeats an already recorded sending",
                 request.SourceEventId, request.OrderId, request.OrderItemId);
-            return false;
-        }
-
-        if (!request.IsReproduction && original != null)
-        {
             return true;
         }
 
@@ -63,10 +62,10 @@ public class RecordProductionCommandHandler(
         if (quoteId != null)
         {
             var produced = await catalogClient.MarkQuoteProduced(
-                request.IsReproduction ? original.QuoteId : quoteId,
+                isReproduction ? original.QuoteId : quoteId,
                 new MarkQuoteProducedRequest(
                     request.SentAt,
-                    request.ProductionLog.Select(e => new CatalogProductionLogEntry(e.ProcessId, e.MachineType)).ToList(), request.IsReproduction ? original.QuoteId : null),
+                    request.ProductionLog.Select(e => new CatalogProductionLogEntry(e.ProcessId, e.MachineType)).ToList(), isReproduction ? original.QuoteId : null),
                 cancellationToken);
             quoteId = produced.Quote.QuoteId;
         }
@@ -85,7 +84,7 @@ public class RecordProductionCommandHandler(
             PackingFacilityId = allocation.PackingFacilityId ?? allocation.FactoryId,
             SentAt = request.SentAt,
             ProductionDays = Math.Max(0, (request.SentAt.Date - orderedAt.Date).Days),
-            IsReproduction = request.IsReproduction,
+            IsReproduction = isReproduction,
             ReproductionOfQuoteId = original?.QuoteId,
             ReproductionOfRecordId = original?.Id,
             ProductionLogJson = request.ProductionLog.ToJsonString(),
@@ -93,7 +92,7 @@ public class RecordProductionCommandHandler(
         };
         db.ProductionRecords.Add(record);
 
-        if (!request.IsReproduction)
+        if (!isReproduction)
         {
             allocation.Status = AllocationStatus.Produced;
             allocation.ProducedAt = request.SentAt;

@@ -122,7 +122,7 @@ The fastest way to get a working copy on a new machine: restore the database fro
 
 A plain-SQL `pg_dump` (about 500 KB) of the `catalog` and `balancer` schemas, taken on 2026-11-25 from a working local
 setup. It holds the tables, indexes, constraints, the EF migration history (`20261124133504_Initial` for the catalog,
-`20261124145246_Initial` for the balancer) and the demo data, so restoring it replaces both "apply the migrations" and
+`20261124145246_Initial` and `20261125063049_AddShipmentAndSupplierContracts` for the balancer) and the demo data, so restoring it replaces both "apply the migrations" and
 "load the demo data".
 
 | Area | Rows |
@@ -132,7 +132,7 @@ setup. It holds the tables, indexes, constraints, the EF migration history (`202
 | Processes | 11 processes, 33 process × factory rows |
 | SKUs | 24 SKUs, 11 aliases, 84 component mappings, 118 process mappings, 72 factory rows, global share for 3 factories |
 | Quotes | 51 quote sets, 154 quotes |
-| Balancer | 50 allocations, 482 cost lines, 3 transfers, 27 production records, 21 cached routes, 10 legacy decisions, 2 capacity reservations, settings |
+| Balancer | 50 allocations, 482 cost lines, 3 transfers, 27 production records, 21 cached routes (keyed by shipment service packing facility `1`, `5`, `7`), 10 legacy decisions, 2 capacity reservations, settings |
 | Audit | 31 history entries, 3 sync runs |
 
 Not included:

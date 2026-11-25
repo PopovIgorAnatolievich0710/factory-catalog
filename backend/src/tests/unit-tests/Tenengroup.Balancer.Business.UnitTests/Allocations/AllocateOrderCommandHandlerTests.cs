@@ -92,7 +92,7 @@ public class AllocateOrderCommandHandlerTests
         Assert.That(allocation.Mode, Is.EqualTo(AllocationMode.Live));
         Assert.That(allocation.Status, Is.EqualTo(AllocationStatus.Allocated));
         Assert.That(allocation.FactoryId, Is.EqualTo("110"));
-        Assert.That(allocation.PackingFacilityId, Is.EqualTo("110"));
+        Assert.That(allocation.PackingFacilityId, Is.EqualTo("F110"));
         Assert.That(allocation.SelectedQuoteId, Is.EqualTo("PQ-O1-I1-110"));
         Assert.That(allocation.QuoteKey, Is.EqualTo("PQ-O1-I1"));
         Assert.That(allocation.ProductionCost, Is.EqualTo(45m));

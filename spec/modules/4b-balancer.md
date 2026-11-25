@@ -125,7 +125,7 @@ Indexes: `allocation_id`, `(order_id, order_item_id)`, `transferred_at`.
 
 | Table | Columns | Purpose |
 |---|---|---|
-| `shipping_route_cache` | `id`, `origin_facility_id`, `destination_country`, `cost_amount`, `cost_currency`, `transit_days_min`, `transit_days_max`, `refreshed_at`; unique `(origin_facility_id, destination_country)` | daily route cache (B-04), cheapest active route per origin and country |
+| `shipping_route_cache` | `id`, `origin_facility_id` (shipment service packing facility id), `destination_country`, `cost_amount`, `cost_currency`, `transit_days_min`, `transit_days_max` (working days), `working_days` int[] (ISO 1 = Monday … 7 = Sunday), `refreshed_at`; unique `(origin_facility_id, destination_country)` | daily route cache (B-04): per packing facility and country the route of `Balancer:ShippingServiceLevel`, a `priority` route first, then the cheapest |
 | `legacy_decision` | `id`, `order_id`, `order_item_id`, `factory_id`, `total_cost` null, `eta` null, `received_at`; unique `(order_id, order_item_id)` (latest wins) | legacy balancer decisions for the shadow comparison (B-19) |
 | `capacity_reservation` | `id`, `factory_id`, `date_from`, `date_to`, `reserved_pct` (1–100), `event_name`, `updated_by`, `updated_at` | event reservations (B-09) |
 | `balancer_settings` | `version` PK, `mode` (`Live` / `Shadow`), `late_penalty_per_day`, `split_penalty`, `share_weight`, `success_rate_enabled`, `success_rate_weight`, `share_window_days`, `share_gap_threshold_pct`, `default_production_days`, `updated_by`, `updated_at` | versioned scoring config editable without a deploy; no row = defaults from `Balancer` options (version 0) |
@@ -144,7 +144,9 @@ average production days per factory (last 90 days, non-reproductions), success r
    capacity left after reservations ≤ 0 for a non-event order → `CAPACITY_RESERVED`; no cached route →
    `NO_ROUTE`. Virtual and dropshipper items never reach the engine.
 2. **Score** each feasible candidate:
-   - `total = quote.cost.total + route.cost`; `etaFrom/To = today + productionDays + transitMin/Max`
+   - `total = quote.cost.total + route.cost`; ship date = `today + productionDays` (calendar days); `etaFrom/To` =
+     ship date + `transitMin/Max` counted on the route's working days. The route of a factory is the route of its
+     packing facility (`Balancer:PackingFacilities`); a factory without a mapping has no route (`NO_ROUTE`)
      (`productionDays` = factory history or `DefaultProductionDays`).
    - effective share = `sharePct × (capacity − reserved)/100`, renormalised over the feasible candidates — partial
      capacity lowers a factory's share and the freed share goes to the others (B-08).
@@ -191,7 +193,7 @@ Every decision stores all candidates, the cheapest feasible total, the reason te
 | `GET /v1/quotes/{quoteKey}`, `POST /v1/quotes/search` | `BalancerView` | Pass-through to the catalog for audit links |
 | `GET /ping` | anonymous | health |
 
-`POST /v1/allocations` body (also the SQS message `data` of event type `ocs.order.paid`):
+`POST /v1/allocations` body (the OCS queue message is mapped to it, see "Events"):
 
 ```json
 {
@@ -244,16 +246,28 @@ SNS outage never loses the decision; `output_published_at` makes it idempotent.
 
 Consumed (SQS, `IQueueReader`, attribute `EventType`, 10 messages per poll every `Balancer:QueuePollSeconds`):
 
-| Queue setting | Event types | Message `data` (assumed, Q-2 / Q-14) |
+| Queue setting | Event types (event type attribute) | Message `DataJson` (checked against the OCS and TG Supplier code, see `spec/questions/external-systems-findings.md`) |
 |---|---|---|
-| `OrderItems:QueueUrl` | `ocs.order.paid` | the `POST /v1/allocations` body |
-| `SupplierEvents:QueueUrl` | `supplier.item.sent`, `supplier.item.reproduced` | `{ orderId, orderItemId, sentAt, productionLog: [{ processId, machineType, quantity }] }` |
+| `OrderItems:QueueUrl` | `paid_order_created_v2` (`event_type`) | OCS `OrderCreatedMessage` v2: `{ order: { id, om_id, site_id, created_date, shipping_address.country_code, fulfillments[{ fulfillment_type, estimated_delivery_date, product_items[{ id, om_id, sku, user_selections }] }] } }` |
+| `SupplierEvents:QueueUrl` | `TenenGroup.Supplier.Events.ItemSent`, `TenenGroup.Supplier.Events.ItemProductionStatusChanged` (`EventType`) | `ItemSent { OrderId, ItemId, SupplierId, SupplierType }`; `ItemProductionStatusChanged { OrderId, ItemId, SupplierItemId, ProductionStatus, ChangedAt }` |
 
-Production: the latest live allocation of the order item is found; `sent` → catalog `produced` on the selected quote
-(log without `quantity`), allocation `Produced`, actual labor from the reported quantities; `reproduced` → catalog
-`produced` with `reproductionOfQuoteId` = the original → the catalog creates `{quoteId}-RP{n}`; a new
-`production_record` linked to the original. Duplicate events (same message id) are ignored; a reproduction before
-its sent event is retried.
+OCS mapping (`OcsPaidOrderMapper`): order id = OCS `om_id` (the OM order id TG Supplier reports), one allocation item
+per product item with quantity 1 (OCS has no quantity: an item is one unit), order item id = the item's `om_id`
+(its OCS id when missing), `skuUuid` = the site SKU (the catalog resolves it, OQ-80), destination =
+`shipping_address.country_code`, promised date = the earliest `estimated_delivery_date` of the factory fulfillments,
+`slaDeliveryDate` and `isEventOrder` not sent by OCS (null / false), `site` = `site_id`, `paidAt` = `created_date`,
+`fulfillment_type` `virtual` / `dropshipper` → `Virtual` / `Dropshipper`, anything else → `Factory`. OCS sends no
+CBD: for factory items it is read from the master catalog, `POST component-breakdown/v2/{site_id}` with the item's
+`user_selections` (JWT from `POST auth/local`, `MasterCatalog:*` settings, as OCS does); `matched_fields[].components`
+and `static_components` summed per ERP id. A failed breakdown leaves the CBD empty (the quote then checks no
+components) and is logged.
+
+Production: the latest live allocation of the order item is found. `ItemSent` carries no time, so the SQS
+`SentTimestamp` is the sent time and the production log is empty. The first `ItemSent` → catalog `produced` on the
+selected quote, allocation `Produced`. `ItemProductionStatusChanged` with `ProductionStatus = "Reproduction"` stores
+`allocation.reproduction_requested_at`; the next `ItemSent` after it is a reproduction → catalog `produced` with
+`reproductionOfQuoteId` = the original → `{quoteId}-RP{n}`, a new `production_record` linked to the original. Any
+other repeated `ItemSent` is a duplicate and ignored, as is the same SQS message id.
 
 ---
 
@@ -265,14 +279,22 @@ its sent event is retried.
   `GET /v1/quotes/dropshipper-cost?sku=`, plus `GET /v1/factories`, `GET /v1/feature-toggle`, `GET /v1/user/me`
   (forwarded user token) and `GET /v1/process-capacity/factories/{factoryId}` (daily plan capacity: `capacityPct`,
   `maxPerDay`, `today.used` of the factory's cell). Polly: 3 retries with exponential back-off on transient errors.
-- **Shipment service** (`ShipmentService:BaseUrl`, Basic): `POST v1/shippingRoute/getByCriteria` with
+- **Shipment service** (`ShipmentService:BaseUrl`, Basic `API_SERVICE_USERNAME` / `API_SERVICE_USER_PASSWORD` of
+  the shipment service, user `admin`): `POST v1/shippingRoute/getByCriteria` with
   `{ statuses: [0], page: { offset, limit: 500 } }`, paged until `totalRowCount`; response
-  `{ data: ShippingRoute[], totalRowCount }` where a route has `packingFacilityIds[]`, `toCountryCodes[]`,
-  `shippingCost`, `currencyCode`, `packingTimeFrame`, `shippingTimeFrame`, `status` (numeric enum, 0 = Active).
-  One cache row per (packing facility, destination country), the cheapest route kept; transit min =
-  `shippingTimeFrame`, max = `shippingTimeFrame + packingTimeFrame`. Refresh daily (Hangfire recurring job
+  `{ data: ShippingRoute[], totalRowCount }`, enums as numbers. Used route fields: `packingFacilityIds[]` (null = every
+  facility), `toCountryCodes[]`, `shippingCost`, `currencyCode`, `packingTimeFrame`, `shippingTimeFrame` (working
+  days), `shippingWorkingDays[]` (1 = Monday … 7 = Sunday), `priority`, `status` (0 = Active),
+  `carrierServiceType.method` (0 Basic, 1 Expedited, 2 Express, 3 Virtual). Only routes of
+  `Balancer:ShippingServiceLevel` (default Basic) are kept; per (packing facility, destination country) a priority
+  route wins, then the cheapest — the shipment service's own assignment rule. Transit min = `shippingTimeFrame`,
+  max = `shippingTimeFrame + packingTimeFrame`. Refresh daily (Hangfire recurring job
   `balancer-shipping-route-refresh`, `Balancer:ShippingRoutesCronExpression`, default `0 1 * * *`); an empty answer
-  keeps the old cache. The catalog factory id must equal the shipment service packing facility id (Q-6).
+  keeps the old cache. Factory ids are TG Supplier ids and differ from packing facility ids: `Balancer:PackingFacilities`
+  maps them (`110` → `1` Kiryat Gat, `125` → `7` Thailand, from the shipment service `supplier_facility` table).
+- **Master catalog** (`MasterCatalog:BaseUrl/Username/Password`, the `tg-catalog` service): `POST auth/local`
+  `{ identifier, password }` → `{ jwt }`; `POST component-breakdown/v2/{siteId}` with the item's `user_selections`
+  (Bearer) → `{ matched_fields[{ components[{ erp_id, quantity }] }], static_components[{ erp_id, quantity }] }`.
 
 ---
 
@@ -287,6 +309,9 @@ its sent event is retried.
 | `Aws__DefaultRegion/AccessKey/SecretKey/ServiceUrl/SqsServiceUrl/SnsServiceUrl` | — | shared AWS infrastructure |
 | `FactoryCatalog__BaseUrl/Username/Password` | — | catalog client |
 | `ShipmentService__BaseUrl/Username/Password` | — | route client |
+| `MasterCatalog__BaseUrl/Username/Password` | empty = no CBD requested (Warning) | component breakdown of OCS items |
+| `Balancer__PackingFacilities__{factoryId}` | `110` → `1`, `125` → `7` | packing facility of a factory; without it the factory has no route |
+| `Balancer__ShippingServiceLevel` | 0 (Basic) | carrier service method whose routes are cached |
 | `OrderItems__QueueUrl` | empty = consumer disabled (Warning) | OCS paid order items |
 | `SupplierEvents__QueueUrl` | empty = consumer disabled | TG Supplier sent / reproduced |
 | `BalancerEvents__AllocationDecidedTopicArn` | empty = not published (Warning) | |

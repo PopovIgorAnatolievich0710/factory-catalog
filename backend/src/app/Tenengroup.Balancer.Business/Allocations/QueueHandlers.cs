@@ -12,6 +12,7 @@ namespace Tenengroup.Balancer.Business.Allocations;
 public class OrderQueueHandler(
     IQueueReader queueReader,
     IRequestRunner requestRunner,
+    IOcsPaidOrderMapper mapper,
     OrderItemsOptions options,
     ILogger<OrderQueueHandler> logger) : IOrderQueueHandler
 {
@@ -22,7 +23,7 @@ public class OrderQueueHandler(
         return queueReader.ConsumeMessageCollection(
             options.QueueUrl,
             MaxMessages,
-            BalancerEventTypes.EventTypeAttribute,
+            BalancerEventTypes.OcsEventTypeAttribute,
             Handle,
             cancellationToken: cancellationToken);
     }
@@ -35,7 +36,12 @@ public class OrderQueueHandler(
             return true;
         }
 
-        var command = message.DataJson.FromJsonString<AllocateOrderCommand>();
+        var command = await mapper.Map(message.DataJson.FromJsonString<OcsPaidOrderMessage>(), cancellationToken);
+        if (command == null)
+        {
+            return true;
+        }
+
         await requestRunner.Run<AllocateOrderCommand, IReadOnlyCollection<AllocationDto>>(command, cancellationToken);
 
         return true;
@@ -46,6 +52,7 @@ public class SupplierQueueHandler(
     IQueueReader queueReader,
     IRequestRunner requestRunner,
     SupplierEventsOptions options,
+    TimeProvider timeProvider,
     ILogger<SupplierQueueHandler> logger) : ISupplierQueueHandler
 {
     private const int MaxMessages = 10;
@@ -55,30 +62,41 @@ public class SupplierQueueHandler(
         return queueReader.ConsumeMessageCollection(
             options.QueueUrl,
             MaxMessages,
-            BalancerEventTypes.EventTypeAttribute,
+            BalancerEventTypes.SupplierEventTypeAttribute,
             Handle,
             cancellationToken: cancellationToken);
     }
 
     private Task<bool> Handle(EventMessageValue message, CancellationToken cancellationToken)
     {
-        if (message.EventType != BalancerEventTypes.SupplierItemSent
-            && message.EventType != BalancerEventTypes.SupplierItemReproduced)
+        if (message.EventType == BalancerEventTypes.SupplierItemSent)
         {
-            logger.LogInformation("Supplier queue message {MessageId} of type {EventType} is skipped", message.MessageId, message.EventType);
+            var sent = message.DataJson.FromJsonString<SupplierItemSentMessage>();
+
+            return requestRunner.Run<RecordProductionCommand, bool>(
+                new RecordProductionCommand(
+                    message.MessageId,
+                    sent.OrderId.ToString(),
+                    sent.ItemId.ToString(),
+                    message.SentAt ?? timeProvider.GetUtcNow().UtcDateTime,
+                    []),
+                cancellationToken);
+        }
+
+        if (message.EventType == BalancerEventTypes.SupplierItemProductionStatusChanged)
+        {
+            var changed = message.DataJson.FromJsonString<SupplierItemProductionStatusChangedMessage>();
+            if (string.Equals(changed.ProductionStatus, BalancerEventTypes.SupplierReproductionStatus, StringComparison.OrdinalIgnoreCase))
+            {
+                return requestRunner.Run<MarkReproductionRequestedCommand, bool>(
+                    new MarkReproductionRequestedCommand(changed.OrderId.ToString(), changed.ItemId.ToString(), changed.ChangedAt),
+                    cancellationToken);
+            }
+
             return Task.FromResult(true);
         }
 
-        var data = message.DataJson.FromJsonString<SupplierItemEventMessage>();
-
-        return requestRunner.Run<RecordProductionCommand, bool>(
-            new RecordProductionCommand(
-                message.MessageId,
-                data.OrderId,
-                data.OrderItemId,
-                data.SentAt,
-                message.EventType == BalancerEventTypes.SupplierItemReproduced,
-                data.ProductionLog ?? []),
-            cancellationToken);
+        logger.LogInformation("Supplier queue message {MessageId} of type {EventType} is skipped", message.MessageId, message.EventType);
+        return Task.FromResult(true);
     }
 }

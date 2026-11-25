@@ -444,4 +444,15 @@ public class RoutingDecisionEngineTests
         Assert.That(decision.Items.All(i => !i.IsFallback && i.Winner.ExcludedReason == null), Is.True);
         Assert.That(decision.Items.Select(i => i.Winner.FactoryId).Distinct().Count(), Is.EqualTo(2));
     }
+
+    [Test]
+    public void Transit_days_count_only_the_working_days_of_the_route()
+    {
+        var friday = new DateOnly(2026, 11, 27);
+        var route = Route("110", 5m) with { WorkingDays = [1, 2, 3, 4, 5] };
+
+        Assert.That(route.DeliveryAfter(friday, 1), Is.EqualTo(new DateOnly(2026, 11, 30)));
+        Assert.That(route.DeliveryAfter(friday, 3), Is.EqualTo(new DateOnly(2026, 12, 2)));
+        Assert.That(route.LatestShipDate(new DateOnly(2026, 12, 2), 3), Is.EqualTo(new DateOnly(2026, 11, 29)));
+    }
 }

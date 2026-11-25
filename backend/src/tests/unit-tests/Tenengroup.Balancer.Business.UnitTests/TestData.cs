@@ -75,7 +75,7 @@ internal static class TestData
 
     public static QuoteSet Set(params FactoryQuote[] quotes) => new("PQ-O1-I1", Now.AddMinutes(15), quotes);
 
-    public static RouteOption Route(string factoryId, decimal cost, int min = 3, int max = 5) => new(factoryId, cost, "USD", min, max);
+    public static RouteOption Route(string factoryId, decimal cost, int min = 3, int max = 5) => new(factoryId, "F" + factoryId, cost, "USD", min, max, [1, 2, 3, 4, 5, 6, 7]);
 
     public static DecisionInput Input(
         IReadOnlyCollection<DecisionItem> items,
@@ -104,6 +104,7 @@ internal static class TestData
             productionDays ?? new Dictionary<string, int>(),
             successRates ?? new Dictionary<string, decimal>(),
             anchors ?? [],
+            routes.ToDictionary(r => r.FactoryId, r => r.PackingFacilityId),
             settings ?? Settings);
     }
 

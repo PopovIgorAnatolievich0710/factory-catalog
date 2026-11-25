@@ -59,7 +59,7 @@ public class RoutingDecisionEngine : IRoutingDecisionEngine
 
     private static CandidateDraft Draft(FactoryQuote quote, DecisionInput input)
     {
-        var route = input.Routes.FirstOrDefault(r => r.OriginFacilityId == quote.FactoryId);
+        var route = input.Routes.FirstOrDefault(r => r.FactoryId == quote.FactoryId);
         var capacity = quote.CapacitySignalPct ?? 100;
         var reserved = input.IsEventOrder ? 0 : input.ReservedCapacityPct.GetValueOrDefault(quote.FactoryId);
         var effectiveCapacity = capacity - reserved;
@@ -118,8 +118,9 @@ public class RoutingDecisionEngine : IRoutingDecisionEngine
             : 100m / feasibleCount;
 
         var productionDays = input.ProductionDays.GetValueOrDefault(factoryId, settings.DefaultProductionDays);
-        var etaFrom = input.Today.AddDays(productionDays + draft.Route.TransitDaysMin);
-        var etaTo = input.Today.AddDays(productionDays + draft.Route.TransitDaysMax);
+        var shipDate = input.Today.AddDays(productionDays);
+        var etaFrom = draft.Route.DeliveryAfter(shipDate, draft.Route.TransitDaysMin);
+        var etaTo = draft.Route.DeliveryAfter(shipDate, draft.Route.TransitDaysMax);
         var total = draft.Quote.Cost.Total + draft.Route.CostAmount;
 
         var daysLate = input.PromisedDeliveryDate.HasValue

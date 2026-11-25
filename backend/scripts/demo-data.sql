@@ -19,6 +19,11 @@ WHERE reproduction_of_record_id IS NOT NULL AND (sku_uuid LIKE 'de300000-%' OR o
 DELETE FROM balancer.allocation WHERE sku_uuid LIKE 'de300000-%' OR order_id LIKE 'ORD8843%';
 DELETE FROM balancer.legacy_decision WHERE order_id LIKE 'ORD8843%';
 DELETE FROM balancer.capacity_reservation WHERE updated_by = 'ravit.tal@tenengroup.com';
+DELETE FROM balancer.shipping_route_cache WHERE origin_facility_id IN ('110', '125', '315');
+
+CREATE FUNCTION pg_temp.facility_of(p_factory text) RETURNS text LANGUAGE sql AS $f$
+    SELECT CASE p_factory WHEN '110' THEN '1' WHEN '125' THEN '7' WHEN '315' THEN '5' END
+$f$;
 
 DELETE FROM catalog.quote
 WHERE reproduction_of_quote_id IS NOT NULL
@@ -398,8 +403,8 @@ FROM (VALUES
 ('global-factory-share', 'global', '315', 'pct', '33.34', '25', 'dana.ofer@tenengroup.com', interval '30 days', 'User')
 ) AS h(entity_type, entity_id, factory_id, field, old_value, new_value, changed_by, ago, source);
 
-INSERT INTO balancer.shipping_route_cache(origin_facility_id, destination_country, cost_amount, cost_currency, transit_days_min, transit_days_max, refreshed_at)
-SELECT r.origin, r.country, r.cost, 'USD', r.tmin, r.tmax, least(now(), date_trunc('day', now()) + interval '1 hour')
+INSERT INTO balancer.shipping_route_cache(origin_facility_id, destination_country, cost_amount, cost_currency, transit_days_min, transit_days_max, working_days, refreshed_at)
+SELECT pg_temp.facility_of(r.origin), r.country, r.cost, 'USD', r.tmin, r.tmax, ARRAY[1, 2, 3, 4, 5, 6, 7], least(now(), date_trunc('day', now()) + interval '1 hour')
 FROM (VALUES
 ('110', 'US', 9.80, 4, 6), ('110', 'GB', 8.40, 3, 5), ('110', 'DE', 7.90, 3, 5), ('110', 'IL', 3.20, 1, 2),
 ('110', 'AU', 12.60, 6, 9), ('110', 'CA', 10.40, 5, 7), ('110', 'FR', 7.95, 3, 5),
@@ -410,7 +415,7 @@ FROM (VALUES
 ) AS r(origin, country, cost, tmin, tmax)
 ON CONFLICT (origin_facility_id, destination_country) DO UPDATE
 SET cost_amount = EXCLUDED.cost_amount, cost_currency = EXCLUDED.cost_currency, transit_days_min = EXCLUDED.transit_days_min,
-    transit_days_max = EXCLUDED.transit_days_max, refreshed_at = EXCLUDED.refreshed_at;
+    transit_days_max = EXCLUDED.transit_days_max, working_days = EXCLUDED.working_days, refreshed_at = EXCLUDED.refreshed_at;
 
 INSERT INTO balancer.balancer_settings(version, mode, late_penalty_per_day, split_penalty, share_weight, success_rate_enabled,
     success_rate_weight, share_window_days, share_gap_threshold_pct, default_production_days, updated_by, updated_at)
@@ -695,7 +700,7 @@ BEGIN
         FOR q IN
             SELECT qt.*, r.cost_amount, r.transit_days_min, r.transit_days_max
             FROM catalog.quote qt
-            LEFT JOIN balancer.shipping_route_cache r ON r.origin_facility_id = qt.factory_id AND r.destination_country = v_country
+            LEFT JOIN balancer.shipping_route_cache r ON r.origin_facility_id = pg_temp.facility_of(qt.factory_id) AND r.destination_country = v_country
             WHERE qt.quote_set_id = v_set_id
             ORDER BY qt.factory_id
         LOOP
@@ -775,7 +780,7 @@ BEGIN
         END IF;
 
         SELECT * INTO v_final_quote FROM catalog.quote WHERE quote_id = v_final_key || '-' || v_final_factory;
-        SELECT * INTO v_route FROM balancer.shipping_route_cache WHERE origin_facility_id = v_final_factory AND destination_country = v_country;
+        SELECT * INTO v_route FROM balancer.shipping_route_cache WHERE origin_facility_id = pg_temp.facility_of(v_final_factory) AND destination_country = v_country;
         v_ship := CASE WHEN v_fallback = 'RoutesUnavailable' THEN NULL ELSE v_route.cost_amount END;
         v_alloc_id := md5('demo-allocation-' || i)::uuid;
         v_page := v_final_factory || '-' || ((v_pages_base ->> v_final_factory)::int + i % 3);
@@ -789,7 +794,7 @@ BEGIN
         VALUES (v_alloc_id, v_order, v_item, v_sku::text, 1, 'Factory', v_country,
             v_promised, v_sla, v_event, CASE WHEN v_event THEN 'Black Friday' END, v_sites[1 + i % 4], v_decided - interval '2 minutes',
             (SELECT cbd FROM catalog.quote_set WHERE id = v_set_id), v_mode, v_status, v_fallback,
-            v_final_key, v_final_quote.quote_id, v_final_factory, v_winner, v_final_factory,
+            v_final_key, v_final_quote.quote_id, v_final_factory, v_winner, pg_temp.facility_of(v_final_factory),
             CASE WHEN v_mode <> 'Shadow' THEN v_page END,
             v_final_quote.material_cost, v_final_quote.labor_cost, v_final_quote.packing_cost, v_final_quote.total_cost,
             v_ship, v_final_quote.total_cost + coalesce(v_ship, 0), 'USD',
@@ -829,7 +834,7 @@ BEGIN
 
         IF v_to IS NOT NULL THEN
             SELECT * INTO v_old_quote FROM catalog.quote WHERE quote_id = v_key || '-' || v_winner;
-            SELECT * INTO v_old_route FROM balancer.shipping_route_cache WHERE origin_facility_id = v_winner AND destination_country = v_country;
+            SELECT * INTO v_old_route FROM balancer.shipping_route_cache WHERE origin_facility_id = pg_temp.facility_of(v_winner) AND destination_country = v_country;
             INSERT INTO balancer.allocation_transfer(allocation_id, order_id, order_item_id, sku_uuid, from_factory_id, from_page, to_factory_id,
                 to_page, reason, note, old_quote_id, new_quote_id, cost_delta, currency, old_eta, new_eta, transferred_by, initiator, transferred_at)
             VALUES (v_alloc_id, v_order, v_item, v_sku::text, v_winner,
@@ -850,7 +855,7 @@ BEGIN
                 factory_id, packing_facility_id, sent_at, production_days, is_reproduction, reproduction_of_quote_id,
                 reproduction_of_record_id, production_log, created_at)
             VALUES (v_alloc_id, 'tgs-sent-' || v_order || '-' || v_item, v_order, v_item, v_sku::text, v_final_key, v_final_quote.quote_id,
-                v_final_factory, v_final_factory, v_produced,
+                v_final_factory, pg_temp.facility_of(v_final_factory), v_produced,
                 greatest(1, ceil(extract(epoch FROM v_produced - (v_decided - interval '2 minutes')) / 86400))::int,
                 false, NULL, NULL, pg_temp.demo_production_log(v_sku, v_final_factory), v_produced)
             RETURNING id INTO v_record_id;
@@ -870,7 +875,7 @@ BEGIN
                     factory_id, packing_facility_id, sent_at, production_days, is_reproduction, reproduction_of_quote_id,
                     reproduction_of_record_id, production_log, created_at)
                 VALUES (v_alloc_id, 'tgs-sent-' || v_order || '-' || v_item || '-rp1', v_order, v_item, v_sku::text, v_final_key,
-                    v_final_quote.quote_id || '-RP1', v_final_factory, v_final_factory, v_rep_produced, 2, true, v_final_quote.quote_id,
+                    v_final_quote.quote_id || '-RP1', v_final_factory, pg_temp.facility_of(v_final_factory), v_rep_produced, 2, true, v_final_quote.quote_id,
                     v_record_id, pg_temp.demo_production_log(v_sku, v_final_factory), v_rep_produced);
             END IF;
         END IF;
@@ -880,7 +885,7 @@ BEGIN
             SELECT v_order, v_item, lq.factory_id, lq.total_cost + coalesce(r.cost_amount, 0), v_decided_date + 3 + r.transit_days_max,
                    v_decided - interval '1 minute'
             FROM catalog.quote lq
-            LEFT JOIN balancer.shipping_route_cache r ON r.origin_facility_id = lq.factory_id AND r.destination_country = v_country
+            LEFT JOIN balancer.shipping_route_cache r ON r.origin_facility_id = pg_temp.facility_of(lq.factory_id) AND r.destination_country = v_country
             WHERE lq.quote_set_id = v_set_id AND lq.producible
             ORDER BY CASE WHEN i % 3 = 0 THEN lq.factory_id <> v_winner ELSE lq.factory_id = v_winner END DESC, lq.factory_id
             LIMIT 1;

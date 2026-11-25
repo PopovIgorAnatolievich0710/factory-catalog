@@ -25,7 +25,51 @@ public record DecisionSettings(
     decimal SuccessRateWeight,
     int DefaultProductionDays);
 
-public record RouteOption(string OriginFacilityId, decimal CostAmount, string CostCurrency, int TransitDaysMin, int TransitDaysMax);
+public record RouteOption(
+    string FactoryId,
+    string PackingFacilityId,
+    decimal CostAmount,
+    string CostCurrency,
+    int TransitDaysMin,
+    int TransitDaysMax,
+    IReadOnlyCollection<int> WorkingDays)
+{
+    public DateOnly DeliveryAfter(DateOnly shipDate, int transitDays)
+    {
+        var date = shipDate;
+        for (var counted = 0; counted < transitDays;)
+        {
+            date = date.AddDays(1);
+            if (IsWorkingDay(date))
+            {
+                counted++;
+            }
+        }
+
+        return date;
+    }
+
+    public DateOnly LatestShipDate(DateOnly deliveryDate, int transitDays)
+    {
+        var date = deliveryDate;
+        for (var counted = 0; counted < transitDays;)
+        {
+            if (IsWorkingDay(date))
+            {
+                counted++;
+            }
+
+            date = date.AddDays(-1);
+        }
+
+        return date;
+    }
+
+    private bool IsWorkingDay(DateOnly date)
+    {
+        return WorkingDays.Count == 0 || WorkingDays.Contains(date.DayOfWeek == DayOfWeek.Sunday ? 7 : (int)date.DayOfWeek);
+    }
+}
 
 public record DecisionItem(string OrderItemId, QuoteSet? QuoteSet);
 
@@ -42,6 +86,7 @@ public record DecisionInput(
     IReadOnlyDictionary<string, int> ProductionDays,
     IReadOnlyDictionary<string, decimal> SuccessRates,
     IReadOnlyCollection<string> AnchorFactoryIds,
+    IReadOnlyDictionary<string, string> PackingFacilityIds,
     DecisionSettings Settings);
 
 public record Candidate(

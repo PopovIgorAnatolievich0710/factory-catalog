@@ -7,8 +7,9 @@ public record RecordProductionCommand(
     string OrderId,
     string OrderItemId,
     DateTime SentAt,
-    bool IsReproduction,
     IReadOnlyCollection<SupplierProductionLogEntry> ProductionLog) : IRequest<bool>;
+
+public record MarkReproductionRequestedCommand(string OrderId, string OrderItemId, DateTime RequestedAt) : IRequest<bool>;
 
 public record SupplierProductionLogEntry(string ProcessId, string? MachineType, decimal? Quantity);
 

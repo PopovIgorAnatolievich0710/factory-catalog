@@ -31,6 +31,26 @@ public class BalancerOptions
     public int QueuePollSeconds { get; set; } = 5;
 
     public string ShippingRoutesCronExpression { get; set; } = "0 1 * * *";
+
+    public Dictionary<string, string> PackingFacilities { get; set; } = new();
+
+    public int ShippingServiceLevel { get; set; }
+
+    public string? PackingFacilityFor(string factoryId)
+    {
+        return PackingFacilities.TryGetValue(factoryId, out var facilityId) ? facilityId : null;
+    }
+}
+
+public class MasterCatalogOptions
+{
+    public const string SectionName = "MasterCatalog";
+
+    public string BaseUrl { get; set; } = string.Empty;
+
+    public string Username { get; set; } = string.Empty;
+
+    public string Password { get; set; } = string.Empty;
 }
 
 public class OrderItemsOptions

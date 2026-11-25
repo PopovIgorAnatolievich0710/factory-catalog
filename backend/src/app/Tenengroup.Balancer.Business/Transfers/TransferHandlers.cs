@@ -135,6 +135,7 @@ public class TransferItemsCommandHandler(
     IEventPublisher eventPublisher,
     ICurrentUser currentUser,
     BalancerEventsOptions options,
+    BalancerOptions balancerOptions,
     TimeProvider timeProvider,
     ILogger<TransferItemsCommandHandler> logger) : IRequestHandler<TransferItemsCommand, TransferResultDto>
 {
@@ -219,7 +220,7 @@ public class TransferItemsCommandHandler(
 
             allocation.ApplyQuote(plan.QuoteSet.QuoteKey, plan.TargetQuote);
             allocation.FactoryId = request.ToFactoryId;
-            allocation.PackingFacilityId = request.ToFactoryId;
+            allocation.PackingFacilityId = balancerOptions.PackingFacilityFor(request.ToFactoryId);
             allocation.ShippingCost = plan.ShippingCost;
             allocation.TotalCost = plan.TargetQuote.Cost.Total + (plan.ShippingCost ?? 0m);
             allocation.EtaFrom = null;
