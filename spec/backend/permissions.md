@@ -1,5 +1,7 @@
 # Permissions Matrix
 
+> **Requirements:** Phase overview v4; Module 1: Components v5; Module 2: Process capacity v5; Module 3: SKUs v4; Module 4: Balancer v4
+
 Source of truth for roles and permissions used by the backend
 (`Tenengroup.Infrastructure.Common/Permissions/PermissionsHelper.cs`) and mirrored by the frontend CASL
 abilities. When changing permissions, update the code, `PermissionsHelperTests` and this file.

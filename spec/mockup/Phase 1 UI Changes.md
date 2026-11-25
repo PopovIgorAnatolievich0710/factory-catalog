@@ -1,5 +1,7 @@
 # Factory Catalog — Phase 1 UI: change log and current spec
 
+> **Requirements:** Phase overview v4; Module 1: Components v5; Module 2: Process capacity v5; Module 3: SKUs v4; Module 4: Balancer v4
+
 Prototype: `Factory Catalog.html`. Phase 1 mode is the default; the "Scope" switch in Tweaks toggles Phase 1 / Full vision. Full vision is unchanged. This document records what the Phase 1 UI now does. The original Phase 1 brief is the baseline; product-owner decisions made during review override it where they differ.
 
 ---

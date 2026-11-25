@@ -1,5 +1,7 @@
 # Module 3 — SKUs
 
+> **Requirements:** Phase overview v4; Module 3: SKUs v4
+
 Stories S-01 … S-15, S-19, S-20 of `spec/requirements/3-skus.md` (S-16 … S-18 are delivered by the quotes module, see
 `spec/modules/4a-quotes.md`). UI per `spec/mockup/Phase 1 UI Changes.md` sections 1 and 4.
 Assumptions are logged in `spec/questions/m3-skus.md`.

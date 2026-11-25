@@ -1,5 +1,7 @@
 # DevOps — Overview
 
+> **Requirements:** Phase overview v4; Module 1: Components v5; Module 2: Process capacity v5; Module 3: SKUs v4; Module 4: Balancer v4
+
 Modelled on the shipment service (`devops/` of that repository). Everything that could not be derived from its
 conventions is a placeholder listed in `spec/questions/devops.md`.
 

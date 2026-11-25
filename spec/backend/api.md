@@ -1,5 +1,7 @@
 # Backend — REST API
 
+> **Requirements:** Phase overview v4; Module 1: Components v5; Module 2: Process capacity v5; Module 3: SKUs v4; Module 4: Balancer v4
+
 Base URL: `http://localhost:5010` (Factory Catalog API). Swagger UI at `/`. All routes are under `/v1` and require
 authentication (Azure AD bearer token or Basic). Module endpoints are documented in `spec/modules/*.md`:
 [components](../modules/1-components.md), [processes and capacity](../modules/2-process-capacity.md),

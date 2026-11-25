@@ -1,5 +1,7 @@
 # Module 4A (catalog balancer API) — questions and assumptions
 
+> **Requirements:** Phase overview v4; Module 4: Balancer v4
+
 Each row was implemented with the recommended variant. Contract: `spec/modules/4a-quotes.md`.
 
 | # | Question | Implemented (recommended) | Alternatives |

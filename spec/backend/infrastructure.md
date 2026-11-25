@@ -1,5 +1,7 @@
 # Backend — Infrastructure & Configuration
 
+> **Requirements:** Phase overview v4; Module 1: Components v5; Module 2: Process capacity v5; Module 3: SKUs v4; Module 4: Balancer v4
+
 This file covers the Factory Catalog API. The Balancer API (port 5011, schemas `balancer` / `hangfire_balancer`)
 shares the database, auth, logging and AWS settings below and adds its own keys (`FactoryCatalog__*`,
 `ShipmentService__*`, `Balancer__*`, queues and topics): see "Configuration" in

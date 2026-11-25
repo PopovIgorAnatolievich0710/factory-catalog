@@ -1,5 +1,7 @@
 # Module 3 (SKUs) — questions and assumptions
 
+> **Requirements:** Phase overview v4; Module 3: SKUs v4
+
 Each row was implemented with the recommended variant.
 
 | # | Question | Implemented (recommended) | Alternatives |

@@ -1,5 +1,7 @@
 # Backend — Domain
 
+> **Requirements:** Phase overview v4; Module 1: Components v5; Module 2: Process capacity v5; Module 3: SKUs v4; Module 4: Balancer v4
+
 Entities live in `Tenengroup.FactoryCatalog.Domains/<Module>`. This file covers the shared part; each module
 documents its own entities and rules in `spec/modules/*.md`. Columns: [`database.md`](database.md).
 

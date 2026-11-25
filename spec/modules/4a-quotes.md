@@ -1,5 +1,7 @@
 # Module 4A — Catalog balancer API (quotes and legacy balancer checks)
 
+> **Requirements:** Phase overview v4; Module 4: Balancer v4
+
 Backend only. Everything other systems ask of the Factory Catalog: the new Balancer service (production quotes and
 their lifecycle, dropshipper cost) and the legacy balancer in TG Supplier (eligibility check, skip log, country SKU
 lists). Requirements: `spec/requirements/4-balancer.md` (B-01 … B-03, B-07, B-10, B-21, sections A / B / E),

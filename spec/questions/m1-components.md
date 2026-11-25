@@ -1,5 +1,7 @@
 # Module 1 (Components) — questions and assumptions
 
+> **Requirements:** Phase overview v4; Module 1: Components v5
+
 Each row was implemented with the recommended variant.
 
 | # | Question | Implemented (recommended) | Alternatives |

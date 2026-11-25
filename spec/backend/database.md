@@ -1,5 +1,7 @@
 # Backend — Database
 
+> **Requirements:** Phase overview v4; Module 1: Components v5; Module 2: Process capacity v5; Module 3: SKUs v4; Module 4: Balancer v4
+
 PostgreSQL 15+, database `factory_catalog`. This file documents the `catalog` schema owned by the Factory Catalog
 API (`FactoryCatalogDbContext`). The `balancer` schema is documented in
 [`modules/4b-balancer.md`](../modules/4b-balancer.md) (section "Database — schema `balancer`"); `hangfire` and

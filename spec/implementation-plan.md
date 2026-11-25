@@ -1,5 +1,7 @@
 # Factory Catalog + Balancer — Phase 1 implementation plan
 
+> **Requirements:** Phase overview v4; Module 1: Components v5; Module 2: Process capacity v5; Module 3: SKUs v4; Module 4: Balancer v4
+
 > **Revision note (Nov 24).** Sections 2–5 were written from the Nov 23 version of the requirements. The pages were
 > revised on Nov 24 and a UI mockup was added (`spec/mockup/`). Where this plan differs, the order of precedence is:
 > `spec/requirements/*.md` → `spec/mockup/Phase 1 UI Changes.md` → this plan. Known differences: a Shift manager

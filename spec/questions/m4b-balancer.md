@@ -1,5 +1,7 @@
 # Module 4B (Balancer service and UI) — questions and assumptions
 
+> **Requirements:** Phase overview v4; Module 4: Balancer v4
+
 Each row was implemented with the recommended variant. Design: `spec/modules/4b-balancer.md`.
 
 | # | Question | Implemented (recommended) | Alternatives |

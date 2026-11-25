@@ -1,5 +1,7 @@
 # Foundation (backend) — questions and assumptions
 
+> **Requirements:** Phase overview v4; Module 1: Components v5; Module 2: Process capacity v5; Module 3: SKUs v4; Module 4: Balancer v4
+
 Each row was implemented with the recommended variant.
 
 | # | Question | Implemented (recommended) | Alternatives |

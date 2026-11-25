@@ -39,6 +39,9 @@ All documentation lives in [`/spec`](./spec/README.md).
 
 When working on a feature, **read the relevant requirement page and spec file before touching code**.
 When a change affects the architecture, domain, API contract or database — **update the spec**.
+Every spec file names the requirement pages and Confluence versions it was written against (`> **Requirements:**`
+header under the title, inline marks for content changed against a newer version) — see "Requirement versions in
+spec files" in `spec/README.md`.
 
 ---
 

@@ -1,5 +1,7 @@
 # Open questions and assumed answers
 
+> **Requirements:** Phase overview v4; Module 1: Components v5; Module 2: Process capacity v5; Module 3: SKUs v4; Module 4: Balancer v4
+
 Every row below is already implemented with the "Implemented (recommended)" variant. Write your answer in the last
 column; any answer that differs from the recommendation gets re-implemented.
 

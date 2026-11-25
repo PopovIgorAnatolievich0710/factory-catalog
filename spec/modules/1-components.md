@@ -1,5 +1,7 @@
 # Module 1 — Components
 
+> **Requirements:** Phase overview v4; Module 1: Components v5
+
 Stories C-03 … C-16 of `spec/requirements/1-components.md`. UI per `spec/mockup/Phase 1 UI Changes.md` sections 1–2.
 Assumptions are logged in `spec/questions/m1-components.md`.
 

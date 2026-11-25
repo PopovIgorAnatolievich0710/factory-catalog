@@ -1,5 +1,7 @@
 # Module 4B — Balancer service and its UI
 
+> **Requirements:** Phase overview v4; Module 4: Balancer v4
+
 The second deployable of the repository: the new "smart balancer" that routes every paid order item to the factory
 with the best total cost (production + shipping) and delivery time. Requirements: `spec/requirements/4-balancer.md`
 (B-04 … B-24, "Decision logic", schemas C–E). The catalog side (B-01 … B-03, quote lifecycle) is Module 4A —

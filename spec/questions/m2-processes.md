@@ -1,5 +1,7 @@
 # Module 2 Process capacity — assumptions and questions
 
+> **Requirements:** Phase overview v4; Module 2: Process capacity v5
+
 Each row was implemented with the recommended variant.
 
 | # | Question | Implemented (recommended) | Alternatives |

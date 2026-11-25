@@ -1,5 +1,7 @@
 # Open questions checked against OCS, TG Supplier and the shipment service
 
+> **Requirements:** Phase overview v4; Module 1: Components v5; Module 4: Balancer v4
+
 Checked on 2026-11-25 against `master` of `C:\shakuro\OCS` (d9957c6), `C:\shakuro\supplier_api` (ebc0825) and
 `C:\shakuro\ShipmentService` (ad927cf). Paths are relative to each repo. Verdict: ✅ matches the implementation,
 ⚠️ differs (needs a change or a decision), ❓ not found in any of the three repos.

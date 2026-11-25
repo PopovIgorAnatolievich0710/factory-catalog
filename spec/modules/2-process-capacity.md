@@ -1,5 +1,7 @@
 # Module 2 — Process capacity
 
+> **Requirements:** Phase overview v4; Module 2: Process capacity v5
+
 Requirements: [`spec/requirements/2-process-capacity.md`](../requirements/2-process-capacity.md) (P-01 … P-14).
 UI: `spec/mockup/Phase 1 UI Changes.md` sections 1 and 3. Assumptions: [`spec/questions/m2-processes.md`](../questions/m2-processes.md).
 

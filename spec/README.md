@@ -1,5 +1,7 @@
 # Factory Catalog + Balancer — Specification Index
 
+> **Requirements:** Phase overview v4; Module 1: Components v5; Module 2: Process capacity v5; Module 3: SKUs v4; Module 4: Balancer v4
+
 ## What is built
 
 | Part | Location | Purpose |
@@ -43,6 +45,24 @@ spec/
 ```
 
 Where the requirement pages and `implementation-plan.md` differ, the requirement pages win.
+
+## Requirement versions in spec files
+
+Every spec file records which requirement pages, in which Confluence version, it was written against. The version is
+the one in the header of the saved page in `requirements/` (`<!-- Source: … | title: … | version N (…) -->`).
+
+- **File header.** Right under the title: `> **Requirements:** Phase overview v4; Module 4: Balancer v4` — one entry
+  per page the file depends on, title + `v` + version, separated by `;`.
+- **Changed content.** A section, table row or paragraph added or changed against a newer version than the file
+  header names it inline at its end, e.g. `(Module 4: Balancer v5, B-04)`; story ids (`C-`, `P-`, `S-`, `B-`) when
+  the change concerns specific stories. When the whole file is brought up to the newer version, update the header
+  and drop the inline marks.
+- **Answers from other sources.** Content changed because an open question was answered (by the product owner or
+  from another system's code) keeps the requirement version it was written against and names the answer, e.g.
+  `(Module 4: Balancer v4; answers OQ-8, 2026-11-25)`.
+- **New Confluence version.** Save the new page in `requirements/` first; every spec file whose header names an older
+  version of that page is then reviewed and its header raised, or the differences are recorded inline.
+- Files in `requirements/` are verbatim Confluence exports and carry their version in the source header only.
 
 ## Quick reference
 
